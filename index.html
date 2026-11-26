@@ -3,492 +3,789 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>영포티루틴 - 실시간 소그룹 초대 & 루틴</title>
+
+  <!-- PWA 모바일 '진짜 앱' 설정 -->
+  <meta name="theme-color" content="#4f46e5" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Y40 Routine" />
-  <meta name="theme-color" content="#0f172a" />
-  <title>Y40 루틴 & 스터디 메이트</title>
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="영포티루틴" />
+  <link id="pwa-manifest" rel="manifest" />
+  <link id="apple-touch-icon" rel="apple-touch-icon" />
 
-  <!-- PWA Manifest 인라인 등록 -->
-  <link rel="manifest" id="manifest-placeholder" />
-
-  <!-- Tailwind CSS & Lucide Icons & Supabase -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
   <style>
-    @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
-    * {
-      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
-      -webkit-tap-highlight-color: transparent;
-      box-sizing: border-box;
-    }
     body {
-      background-color: #090d16;
-      color: #f8fafc;
-      overscroll-behavior-y: none;
-      padding-top: env(safe-area-inset-top);
-      padding-bottom: env(safe-area-inset-bottom);
+      font-family: 'Noto Sans KR', 'Inter', sans-serif;
+      background: linear-gradient(135deg, #eef2ff 0%, #f5f3ff 50%, #fdf2f8 100%);
+      margin: 0; padding: 0; min-height: 100dvh;
+      display: flex; align-items: center; justify-content: center;
+      -webkit-tap-highlight-color: transparent;
     }
-    .glass {
-      background: rgba(30, 41, 59, 0.72);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      border: 1px solid rgba(148, 163, 184, 0.14);
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    @keyframes pokeShake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-5px) rotate(-3deg); }
+      75% { transform: translateX(5px) rotate(3deg); }
     }
-    .glass-card {
-      background: linear-gradient(145deg, rgba(30, 41, 59, 0.85), rgba(15, 23, 42, 0.92));
-      border: 1px solid rgba(148, 163, 184, 0.12);
+    .animate-poke { animation: pokeShake 0.4s ease-in-out; }
+    @keyframes popIn {
+      0% { transform: scale(0.92); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
     }
-    ::-webkit-scrollbar { width: 4px; height: 4px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.25); border-radius: 9999px; }
-
-    @keyframes pulseRing {
-      0% { transform: scale(0.95); opacity: 0.8; }
-      70% { transform: scale(1.25); opacity: 0; }
-      100% { transform: scale(1.25); opacity: 0; }
-    }
-    .pulse-ring::before {
-      content: '';
-      position: absolute;
-      inset: -4px;
-      border-radius: 9999px;
-      border: 2px solid #34d399;
-      animation: pulseRing 2s infinite;
-    }
-    .grass-0 { background-color: #1e293b; }
-    .grass-1 { background-color: #064e3b; }
-    .grass-2 { background-color: #047857; }
-    .grass-3 { background-color: #10b981; }
-    .grass-4 { background-color: #34d399; box-shadow: 0 0 8px rgba(52, 211, 153, 0.4); }
+    .animate-pop { animation: popIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
   </style>
 </head>
-<body class="min-h-screen flex flex-col max-w-md mx-auto relative bg-[#090d16] text-slate-100 select-none">
+<body class="p-0 sm:p-6">
 
-  <!-- 초대 링크로 Safari 접속 시 안내 상단 배너 -->
-  <div id="invite-safari-banner" class="hidden bg-gradient-to-r from-indigo-600 to-violet-600 text-white px-4 py-3 text-xs shadow-lg z-50">
-    <div class="flex items-start justify-between gap-2">
-      <div class="space-y-1">
-        <p class="font-bold text-sm flex items-center gap-1.5">
-          <span>📩 초대코드가 자동 복사되었습니다!</span>
-          <span id="banner-copied-code" class="bg-white/20 px-2 py-0.5 rounded font-mono tracking-wider"></span>
-        </p>
-        <p class="text-indigo-100 leading-relaxed">
-          홈 화면에 추가한 <b>Y40 앱</b>을 실행하면 바로 방에 입장할 수 있어요. 처음이라면 하단 <b>공유(□↑) → 홈 화면에 추가</b>를 눌러주세요!
-        </p>
-      </div>
-      <button onclick="document.getElementById('invite-safari-banner').classList.add('hidden')" class="p-1 text-white/80 hover:text-white">
-        <i data-lucide="x" class="w-4 h-4"></i>
-      </button>
-    </div>
-  </div>
-
-  <!-- 토스트 알림 -->
-  <div id="toast-container" class="fixed top-4 left-1/2 -translate-x-1/2 z-[100] flex flex-col gap-2 w-[90%] max-w-sm pointer-events-none"></div>
-
-  <!-- 상단 헤더 -->
-  <header class="sticky top-0 z-30 glass px-4 py-3 flex items-center justify-between border-b border-slate-800/80">
-    <div class="flex items-center gap-2.5">
-      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-500 to-emerald-400 flex items-center justify-center font-black text-slate-950 text-base shadow-md">
-        Y40
-      </div>
-      <div>
-        <div class="flex items-center gap-1.5">
-          <h1 class="font-bold text-sm tracking-tight text-white" id="header-username">게스트</h1>
-          <span id="sync-badge" class="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-400 font-medium">오프라인</span>
-        </div>
-        <p class="text-[11px] text-slate-400" id="header-date">오늘의 루틴을 시작해보세요</p>
-      </div>
-    </div>
-
-    <div class="flex items-center gap-2">
-      <!-- 친구 목록 & 1:1 메시지 버튼 -->
-      <button onclick="openFriendsModal()" class="relative p-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-amber-400 border border-slate-700/70 transition active:scale-95" title="친구 목록 및 메시지">
-        <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
-        <span id="unread-dm-dot" class="hidden absolute -top-1 -right-1 w-3 h-3 bg-rose-500 rounded-full border-2 border-slate-900"></span>
-      </button>
-      <!-- 계정 / 로그인 버튼 -->
-      <button onclick="openAuthModal()" class="p-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700/70 transition active:scale-95" title="계정 및 동기화">
-        <i data-lucide="user-check" class="w-4 h-4 text-emerald-400"></i>
-      </button>
-    </div>
-  </header>
-
-  <!-- 메인 콘텐츠 영역 -->
-  <main class="flex-1 overflow-y-auto px-4 pt-4 pb-24 space-y-5">
-
-    <!-- ==================== 1. 오늘 루틴 탭 ==================== -->
-    <section id="tab-routine" class="space-y-4">
-      <!-- 오늘 달성률 요약 카드 -->
-      <div class="glass-card rounded-2xl p-4 shadow-lg">
-        <div class="flex items-center justify-between mb-2">
-          <div>
-            <span class="text-xs font-semibold text-indigo-400 uppercase tracking-wider">Today's Progress</span>
-            <h2 class="text-lg font-bold text-white mt-0.5">오늘의 루틴 달성률</h2>
-          </div>
-          <div class="text-right">
-            <span id="today-rate-text" class="text-2xl font-black text-emerald-400">0%</span>
-            <p id="today-count-text" class="text-[11px] text-slate-400">0 / 0 완료</p>
-          </div>
-        </div>
-        <div class="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
-          <div id="today-progress-bar" class="h-full bg-gradient-to-r from-indigo-500 via-teal-400 to-emerald-400 transition-all duration-500 rounded-full" style="width: 0%"></div>
-        </div>
-      </div>
-
-      <!-- 루틴 추가 입력 -->
-      <form onsubmit="addRoutine(event)" class="flex gap-2">
-        <input id="routine-input" type="text" placeholder="새로운 루틴 입력 (예: 영단어 30개 암기)" class="flex-1 bg-slate-900/90 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500" required />
-        <select id="routine-category" class="bg-slate-900/90 border border-slate-700/80 rounded-xl px-2.5 py-2.5 text-xs text-slate-300 focus:outline-none focus:border-indigo-500">
-          <option value="공부">📚 공부</option>
-          <option value="운동">💪 운동</option>
-          <option value="생활">☀️ 생활</option>
-          <option value="독서">📖 독서</option>
-        </select>
-        <button type="submit" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl text-sm transition active:scale-95 shrink-0">
-          추가
-        </button>
-      </form>
-
-      <!-- 루틴 리스트 -->
-      <div id="routine-list" class="space-y-2.5"></div>
-    </section>
-
-    <!-- ==================== 2. 집중 타이머 & 스터디룸 탭 ==================== -->
-    <section id="tab-room" class="hidden space-y-4">
-      <!-- 방 미입장 상태 -->
-      <div id="room-lobby" class="space-y-4">
-        <div class="glass-card rounded-2xl p-5 text-center space-y-3">
-          <div class="w-12 h-12 rounded-2xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center mx-auto">
-            <i data-lucide="users" class="w-6 h-6"></i>
-          </div>
-          <h2 class="text-lg font-bold text-white">실시간 스터디룸</h2>
-          <p class="text-xs text-slate-400 leading-relaxed">
-            숫자 6자리 초대코드로 친구와 함께 공부하고<br/>실시간 타이머와 루틴 달성 현황을 공유하세요.
+  <!-- 모바일에서는 화면 꽉 찬 네이티브 앱 모드, PC에서는 스마트폰 프레임 -->
+  <div class="relative w-full sm:max-w-[420px] h-[100dvh] sm:h-[840px] sm:max-h-[95vh] bg-white sm:rounded-[44px] sm:shadow-[0_25px_65px_-15px_rgba(79,70,229,0.22)] sm:border-[10px] sm:border-slate-900 overflow-hidden flex flex-col">
+    
+    <!-- Safari 초대 링크 접속 시 자동 복사 안내 배너 -->
+    <div id="invite-safari-banner" class="hidden bg-gradient-to-r from-indigo-600 to-violet-600 text-white px-4 py-2.5 text-[11px] z-30 shrink-0 shadow-md">
+      <div class="flex items-start justify-between gap-2">
+        <div class="space-y-0.5">
+          <p class="font-extrabold flex items-center gap-1.5">
+            <span>📩 초대코드 자동 복사 완료!</span>
+            <span id="banner-copied-code" class="bg-white/20 px-1.5 py-0.5 rounded font-mono tracking-wider"></span>
           </p>
+          <p class="text-indigo-100 leading-snug">
+            홈 화면에 추가한 <b>영포티루틴 앱</b>을 열면 원클릭으로 방에 입장해요! (처음이라면 <b>공유 → 홈 화면에 추가</b>)
+          </p>
+        </div>
+        <button onclick="document.getElementById('invite-safari-banner').classList.add('hidden')" class="p-0.5 text-white/80 hover:text-white shrink-0">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
 
-          <div class="pt-2 space-y-2.5">
-            <button onclick="createStudyRoom()" class="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold text-sm shadow-lg transition active:scale-98">
-              + 새 스터디룸 만들기 (숫자 6자리 자동 발급)
+    <!-- 상단 상태바 (PC 미리보기 전용) -->
+    <div class="hidden sm:flex bg-white pt-2 pb-1 px-6 items-center justify-between text-xs font-semibold text-slate-800 select-none z-20 shrink-0">
+      <span id="status-clock">9:41</span>
+      <div class="w-24 h-5 bg-slate-900 rounded-full mx-auto"></div>
+      <div class="flex items-center gap-1.5">
+        <span id="db-status-badge" class="text-[10px] font-extrabold text-emerald-600">● LIVE</span>
+        <i data-lucide="wifi" class="w-3.5 h-3.5"></i>
+      </div>
+    </div>
+
+    <!-- 앱 상단 헤더 -->
+    <header class="bg-white px-4 py-3 flex items-center justify-between border-b border-slate-100 shrink-0 z-10 gap-1.5">
+      <div class="flex items-center gap-2 min-w-0">
+        <div class="w-8 h-8 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white font-extrabold text-[10px] shadow-xs shrink-0">
+          영포티
+        </div>
+        <div class="min-w-0">
+          <div class="flex items-center gap-1">
+            <h1 id="header-group-name" class="text-xs font-extrabold text-slate-900 tracking-tight truncate">영포티루틴</h1>
+            <span id="mobile-live-dot" class="sm:hidden text-[9px] font-extrabold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full shrink-0">● LIVE</span>
+          </div>
+          <span id="header-invite-code" class="text-[10px] text-indigo-600 font-bold block truncate">초대코드: 202601</span>
+        </div>
+      </div>
+
+      <!-- 우측: 친구목록(1:1메시지), 내 프로필 버튼 & 초대 -->
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button onclick="openFriendsListModal()" class="relative px-2 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 text-amber-800 text-[11px] font-extrabold rounded-full transition active:scale-95 flex items-center gap-1" title="내 친구 목록 & 1:1 메시지">
+          <span>⭐</span>
+          <span id="header-friend-count" class="text-[10px]">0</span>
+          <span id="unread-dm-badge" class="hidden absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white"></span>
+        </button>
+        <button onclick="openProfileModal()" class="flex items-center gap-1.5 pl-1.5 pr-2 py-1 bg-slate-100 hover:bg-indigo-50 border border-slate-200/80 rounded-full transition active:scale-95" title="내 프로필 & 로그인 관리">
+          <span id="header-avatar-box" class="w-5 h-5 rounded-full bg-white flex items-center justify-center text-xs overflow-hidden shrink-0 border border-slate-200">🙋🏻‍♂️</span>
+          <span id="header-nickname-text" class="text-[11px] font-extrabold text-slate-800 max-w-[48px] truncate">게스트</span>
+        </button>
+        <button onclick="openInviteJoinModal()" class="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-extrabold rounded-full shadow-xs transition active:scale-95">
+          + 초대
+        </button>
+      </div>
+    </header>
+
+    <!-- 메인 콘텐츠 -->
+    <main id="app-content" class="flex-1 overflow-y-auto no-scrollbar bg-slate-50/80 pb-24">
+      
+      <!-- ================= 1. 오늘루틴 ================= -->
+      <section id="tab-today" class="p-4 space-y-4">
+        <div class="bg-gradient-to-br from-indigo-600 via-violet-600 to-purple-600 rounded-2xl p-4 text-white shadow-md shadow-indigo-500/20 relative overflow-hidden">
+          <div class="relative z-10">
+            <div class="flex items-center justify-between gap-2 mb-2">
+              <span id="today-date-badge" class="inline-flex items-center gap-1 bg-white/20 backdrop-blur-xs text-[10px] font-bold px-2.5 py-0.5 rounded-full">
+                2026.11.26 (목)
+              </span>
+              <button onclick="openRestCouponModal()" class="flex items-center gap-1 bg-amber-300 hover:bg-amber-200 text-slate-900 font-extrabold text-[11px] px-2.5 py-1 rounded-full shadow-xs transition active:scale-95">
+                <span>🎫 쉬는 날 쿠폰 (잔여 <span id="coupon-count-text">2</span>장)</span>
+              </button>
+            </div>
+            <p class="text-[13px] font-bold leading-snug">
+              ✨ 나만의 핵심 루틴(1~5개)을 등록하고 원클릭 체크로 소그룹 팀원들과 실시간 공유해 보세요!
+            </p>
+            <div class="mt-3 bg-black/15 rounded-xl p-2.5">
+              <div class="flex items-center justify-between text-xs mb-1.5">
+                <span class="text-indigo-100 font-medium">오늘 나의 달성률</span>
+                <strong id="my-progress-label" class="font-extrabold text-white">0% (0/0 완료)</strong>
+              </div>
+              <div class="w-full h-2 bg-white/20 rounded-full overflow-hidden">
+                <div id="my-progress-bar" class="h-full bg-gradient-to-r from-amber-300 to-emerald-300 rounded-full transition-all duration-500" style="width: 0%;"></div>
+              </div>
+            </div>
+          </div>
+          <div class="absolute -right-8 -bottom-8 w-28 h-28 bg-white/10 rounded-full pointer-events-none"></div>
+        </div>
+
+        <!-- 나의 오늘 루틴 -->
+        <div>
+          <div class="flex items-center justify-between mb-2 px-1">
+            <div class="flex items-center gap-1.5">
+              <h2 class="text-sm font-extrabold text-slate-800">나의 오늘 루틴</h2>
+              <span id="routine-count-pill" class="text-[10px] font-bold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">0/5개</span>
+            </div>
+            <button onclick="openRoutineFormModal()" class="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-extrabold rounded-lg shadow-2xs flex items-center gap-1 transition active:scale-95">
+              <i data-lucide="plus" class="w-3.5 h-3.5"></i> 루틴 추가
+            </button>
+          </div>
+          <div id="my-routines-list" class="space-y-2.5"></div>
+        </div>
+
+        <!-- 실시간 소그룹 현황 -->
+        <div class="bg-white rounded-2xl p-4 shadow-xs border border-slate-100 space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="flex items-center gap-1.5">
+                <h2 class="text-sm font-extrabold text-slate-800">소그룹 실시간 현황</h2>
+                <span id="group-member-count-badge" class="text-[10px] font-bold bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full">1명 참여중</span>
+              </div>
+              <p class="text-[11px] text-slate-400 mt-0.5">팀원 프로필을 누르면 상세 보기 · 친구 추가 · 1:1 메시지 가능</p>
+            </div>
+            <button onclick="openInviteJoinModal()" class="px-2.5 py-1.5 bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-600 rounded-xl text-xs font-bold flex items-center gap-1 transition">
+              <i data-lucide="user-plus" class="w-3.5 h-3.5"></i> 초대
+            </button>
+          </div>
+
+          <!-- 소그룹 공동 목표 평균 게이지 -->
+          <div class="bg-slate-50 rounded-xl p-2.5 border border-slate-100">
+            <div class="flex items-center justify-between text-[11px] mb-1">
+              <span class="font-bold text-slate-600">🔥 우리 팀 오늘 평균 달성률</span>
+              <span id="group-avg-label" class="font-extrabold text-indigo-600">0%</span>
+            </div>
+            <div class="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+              <div id="group-avg-bar" class="h-full bg-gradient-to-r from-indigo-500 to-violet-500 rounded-full transition-all duration-500" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <div id="group-members-list" class="space-y-2.5"></div>
+        </div>
+
+        <!-- 실시간 인증 피드 & 한 줄 회고 -->
+        <div class="bg-white rounded-2xl p-4 shadow-xs border border-slate-100 space-y-3">
+          <div class="flex items-center justify-between">
+            <h2 class="text-sm font-extrabold text-slate-800 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-indigo-600 animate-pulse"></span>
+              실시간 완료 피드 & 한 줄 회고
+            </h2>
+            <button id="diary-privacy-toggle" onclick="toggleDiaryPrivacy()" class="text-[11px] font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 transition flex items-center gap-1">
+              <i data-lucide="globe" class="w-3 h-3"></i>
+              <span id="diary-privacy-text">그룹 공유</span>
+            </button>
+          </div>
+
+          <div class="bg-indigo-50/60 border border-indigo-100 rounded-xl p-3 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-bold text-indigo-900">✍️ 오늘의 디지털 다이어리 한 줄 기록</span>
+              <div class="flex items-center gap-1 text-sm" id="quick-mood-selector">
+                <button onclick="selectQuickMood('🔥', this)" class="quick-mood-btn p-1 rounded-lg bg-white shadow-2xs ring-1 ring-indigo-400">🔥</button>
+                <button onclick="selectQuickMood('😊', this)" class="quick-mood-btn p-1 rounded-lg opacity-60 hover:opacity-100">😊</button>
+                <button onclick="selectQuickMood('📚', this)" class="quick-mood-btn p-1 rounded-lg opacity-60 hover:opacity-100">📚</button>
+                <button onclick="selectQuickMood('😴', this)" class="quick-mood-btn p-1 rounded-lg opacity-60 hover:opacity-100">😴</button>
+              </div>
+            </div>
+            <div class="flex gap-1.5">
+              <input id="today-diary-input" type="text" placeholder="오늘 루틴을 실천하며 느낀 점을 한 줄로 남겨보세요..." class="flex-1 bg-white border border-indigo-100 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-indigo-500" />
+              <button onclick="submitQuickDiary()" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shrink-0 transition active:scale-95">
+                기록
+              </button>
+            </div>
+          </div>
+
+          <div id="live-feed-list" class="space-y-2"></div>
+        </div>
+      </section>
+
+      <!-- ================= 2. 탐색·설계 ================= -->
+      <section id="tab-explore" class="hidden p-4 space-y-4">
+        <div class="bg-slate-200/80 p-1 rounded-2xl grid grid-cols-2 gap-1">
+          <button id="subtab-market-btn" onclick="switchExploreSubtab('market')" class="py-2 text-xs font-extrabold rounded-xl bg-white text-indigo-700 shadow-xs transition">
+            🏆 루틴 참고 · 마켓
+          </button>
+          <button id="subtab-custom-btn" onclick="switchExploreSubtab('custom')" class="py-2 text-xs font-bold rounded-xl text-slate-500 hover:text-slate-700 transition">
+            ✨ AI 맞춤 루틴 추천
+          </button>
+        </div>
+
+        <div id="explore-market-view" class="space-y-3">
+          <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
+            <button onclick="filterMarket('all')" class="market-cat-btn px-3 py-1.5 rounded-full text-xs font-bold bg-indigo-600 text-white shrink-0 transition" data-cat="all">전체</button>
+            <button onclick="filterMarket('univ')" class="market-cat-btn px-3 py-1.5 rounded-full text-xs font-bold bg-white text-slate-600 border border-slate-200 shrink-0 transition" data-cat="univ">대학생</button>
+            <button onclick="filterMarket('exam')" class="market-cat-btn px-3 py-1.5 rounded-full text-xs font-bold bg-white text-slate-600 border border-slate-200 shrink-0 transition" data-cat="exam">수험생</button>
+            <button onclick="filterMarket('worker')" class="market-cat-btn px-3 py-1.5 rounded-full text-xs font-bold bg-white text-slate-600 border border-slate-200 shrink-0 transition" data-cat="worker">직장인</button>
+          </div>
+          <div id="market-list-container" class="space-y-3"></div>
+        </div>
+
+        <div id="explore-custom-view" class="hidden space-y-4">
+          <div class="bg-white rounded-2xl p-4 shadow-xs border border-slate-100 space-y-4">
+            <div>
+              <span class="text-[10px] font-extrabold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">STEP 1</span>
+              <h3 class="text-sm font-extrabold text-slate-800 mt-1">목적 선택</h3>
+              <div class="grid grid-cols-3 gap-2 mt-2">
+                <button onclick="selectDesignOption('goal', '학업/자격증', this)" class="design-goal-btn py-2.5 px-2 rounded-xl border-2 border-indigo-600 bg-indigo-50 text-indigo-700 text-xs font-bold flex flex-col items-center gap-1">
+                  <span>📚</span><span>학업/자격증</span>
+                </button>
+                <button onclick="selectDesignOption('goal', '건강/운동', this)" class="design-goal-btn py-2.5 px-2 rounded-xl border border-slate-200 bg-white text-slate-600 text-xs font-bold flex flex-col items-center gap-1">
+                  <span>🏃🏻‍♂️</span><span>건강/운동</span>
+                </button>
+                <button onclick="selectDesignOption('goal', '생활습관', this)" class="design-goal-btn py-2.5 px-2 rounded-xl border border-slate-200 bg-white text-slate-600 text-xs font-bold flex flex-col items-center gap-1">
+                  <span>🌿</span><span>생활습관</span>
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <span class="text-[10px] font-extrabold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">STEP 2</span>
+              <h3 class="text-sm font-extrabold text-slate-800 mt-1">난이도 선택</h3>
+              <div class="grid grid-cols-3 gap-2 mt-2">
+                <button onclick="selectDesignOption('level', '입문', this)" class="design-level-btn py-2 rounded-xl border-2 border-indigo-600 bg-indigo-50 text-indigo-700 text-xs font-bold">🌱 입문</button>
+                <button onclick="selectDesignOption('level', '보통', this)" class="design-level-btn py-2 rounded-xl border border-slate-200 bg-white text-slate-600 text-xs font-bold">🔥 보통</button>
+                <button onclick="selectDesignOption('level', '챌린지', this)" class="design-level-btn py-2 rounded-xl border border-slate-200 bg-white text-slate-600 text-xs font-bold">🚀 챌린지</button>
+              </div>
+            </div>
+
+            <div>
+              <span class="text-[10px] font-extrabold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">STEP 3</span>
+              <h3 class="text-sm font-extrabold text-slate-800 mt-1">생활패턴 선택</h3>
+              <div class="grid grid-cols-3 gap-2 mt-2">
+                <button onclick="selectDesignOption('pattern', '아침형', this)" class="design-pattern-btn py-2 rounded-xl border-2 border-indigo-600 bg-indigo-50 text-indigo-700 text-xs font-bold">☀️ 아침형</button>
+                <button onclick="selectDesignOption('pattern', '올빼미형', this)" class="design-pattern-btn py-2 rounded-xl border border-slate-200 bg-white text-slate-600 text-xs font-bold">🌙 올빼미형</button>
+                <button onclick="selectDesignOption('pattern', '유동적', this)" class="design-pattern-btn py-2 rounded-xl border border-slate-200 bg-white text-slate-600 text-xs font-bold">🔄 유동적</button>
+              </div>
+            </div>
+
+            <button onclick="generateCustomDrafts()" class="w-full py-3 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-extrabold text-xs rounded-xl shadow-sm transition">
+              ✨ 루틴 초안 자동 생성하기
             </button>
 
-            <div class="flex items-center gap-2 pt-1">
-              <input id="join-code-input" type="text" inputmode="numeric" maxlength="10" placeholder="숫자 6자리 코드 입력 (예: 482910)" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-center font-mono tracking-widest text-white placeholder-slate-500 focus:outline-none focus:border-emerald-400" />
-              <button onclick="joinStudyRoom()" class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm transition active:scale-95 shrink-0">
-                입장
+            <div id="custom-draft-result" class="hidden bg-slate-50 border border-indigo-100 rounded-2xl p-3.5 space-y-2.5 animate-pop">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-extrabold text-indigo-700">🤖 추천 루틴 초안</span>
+                <span id="draft-summary-tag" class="text-[10px] font-bold bg-white text-slate-600 px-2 py-0.5 rounded-md border border-slate-200">학업/자격증 · 입문 · 아침형</span>
+              </div>
+              <div id="generated-draft-items" class="space-y-1.5 text-xs"></div>
+              <button onclick="confirmCustomDrafts()" class="w-full py-2.5 bg-slate-900 hover:bg-indigo-600 text-white font-extrabold text-xs rounded-xl transition">
+                오늘 루틴에 추가하기 ✅
               </button>
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      <!-- 방 입장 완료 상태 -->
-      <div id="room-active" class="hidden space-y-4">
-        <!-- 방 정보 & 초대 공유 -->
-        <div class="glass-card rounded-2xl p-4 flex items-center justify-between">
-          <div>
-            <div class="flex items-center gap-2">
-              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-              <span class="text-xs text-slate-400">스터디룸 코드</span>
-            </div>
-            <div class="flex items-center gap-2 mt-0.5">
-              <span id="active-room-code" class="text-2xl font-black font-mono tracking-widest text-emerald-400">000000</span>
-              <button onclick="copyRoomInviteLink()" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 flex items-center gap-1 border border-slate-700">
-                <i data-lucide="share-2" class="w-3.5 h-3.5 text-indigo-400"></i> 초대링크 복사
-              </button>
-            </div>
+      <!-- ================= 3. 리포트·일기 (더미 초기화 · 실제 달성률 & 28일 잔디 & 누적 일기) ================= -->
+      <section id="tab-report" class="hidden p-4 space-y-4">
+        <!-- 상단 실제 누적 통계 3칸 -->
+        <div class="grid grid-cols-3 gap-2">
+          <div class="bg-white rounded-2xl p-3 shadow-xs border border-slate-100 text-center">
+            <span class="text-[10px] font-bold text-slate-400 block">누적 평균 달성률</span>
+            <strong id="report-avg-rate" class="text-base font-extrabold text-indigo-600 mt-0.5 block">0%</strong>
           </div>
-          <button onclick="leaveStudyRoom()" class="px-3 py-1.5 rounded-xl bg-rose-500/15 text-rose-400 hover:bg-rose-500/25 text-xs font-semibold border border-rose-500/30">
-            나가기
+          <div class="bg-white rounded-2xl p-3 shadow-xs border border-slate-100 text-center">
+            <span class="text-[10px] font-bold text-slate-400 block">연속 달성일</span>
+            <strong id="report-streak-days" class="text-base font-extrabold text-violet-600 mt-0.5 block">0일</strong>
+          </div>
+          <div class="bg-white rounded-2xl p-3 shadow-xs border border-slate-100 text-center">
+            <span class="text-[10px] font-bold text-slate-400 block">기록된 일기</span>
+            <strong id="report-diary-count" class="text-base font-extrabold text-amber-600 mt-0.5 block">0편</strong>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl p-4 shadow-xs border border-slate-100 space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-sm font-extrabold text-slate-800">실제 주간 루틴 달성률 리포트</h2>
+              <p class="text-[11px] text-slate-400">이번 주 월~일 실제 실천 기록 자동 반영</p>
+            </div>
+            <span id="weekly-avg-badge" class="bg-indigo-50 text-indigo-700 text-xs font-extrabold px-2.5 py-1 rounded-full">주간 평균 0%</span>
+          </div>
+
+          <!-- 이번 주 실제 요일별 그래프 -->
+          <div id="weekly-bars-grid" class="grid grid-cols-7 gap-2 items-end h-32 pt-3 px-1"></div>
+
+          <div class="mt-4 pt-3 border-t border-slate-100">
+            <div class="flex items-center justify-between text-xs mb-2">
+              <span class="font-bold text-slate-700">실제 습관 잔디 히트맵 (최근 28일)</span>
+              <div class="flex items-center gap-1 text-[10px] text-slate-400">
+                <span>0%</span>
+                <span class="w-2.5 h-2.5 rounded-xs bg-slate-100 inline-block"></span>
+                <span class="w-2.5 h-2.5 rounded-xs bg-indigo-200 inline-block"></span>
+                <span class="w-2.5 h-2.5 rounded-xs bg-indigo-400 inline-block"></span>
+                <span class="w-2.5 h-2.5 rounded-xs bg-indigo-600 inline-block"></span>
+                <span>100%</span>
+              </div>
+            </div>
+            <div class="grid grid-cols-7 gap-1.5" id="monthly-heatmap"></div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl p-4 shadow-xs border border-indigo-100 space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-sm font-extrabold text-slate-800">📔 데이터 기반 주간 디지털 다이어리</h3>
+              <p class="text-[10px] text-slate-400 mt-0.5">저장 시 날짜·주차·달성률과 함께 계속 누적 기록됩니다</p>
+            </div>
+            <span id="diary-week-badge" class="text-[10px] font-bold bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full">오늘 기록</span>
+          </div>
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <span class="text-xs font-bold text-slate-600 mr-1">기분:</span>
+            <button type="button" onclick="selectReportMood('🥳 뿌듯함', this)" class="report-mood-btn px-2.5 py-1 rounded-lg bg-indigo-100 text-indigo-700 text-xs font-bold">🥳 뿌듯함</button>
+            <button type="button" onclick="selectReportMood('😌 평온함', this)" class="report-mood-btn px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 text-xs font-bold">😌 평온함</button>
+            <button type="button" onclick="selectReportMood('💪 의욕충만', this)" class="report-mood-btn px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 text-xs font-bold">💪 의욕충만</button>
+          </div>
+          <input id="weekly-diary-title" type="text" maxlength="40" placeholder="한 줄 제목 (예: 이번 주 루틴 80% 돌파!)" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-indigo-500" />
+          <textarea id="weekly-diary-textarea" rows="3" placeholder="이번 주 루틴을 실천하며 느낀 나만의 회고를 자유롭게 기록해 보세요..." class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-800 focus:outline-none focus:border-indigo-500"></textarea>
+          <button onclick="saveWeeklyDiary()" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl transition active:scale-98">
+            주간 다이어리 누적 저장하기
+          </button>
+
+          <!-- 누적된 다이어리 아카이브 목록 -->
+          <div class="pt-3 border-t border-slate-100 space-y-2">
+            <h4 class="text-xs font-extrabold text-slate-700">누적 다이어리 보관함</h4>
+            <div id="saved-diaries-list" class="space-y-2"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 4. 플러스 ================= -->
+      <section id="tab-plus" class="hidden p-4 space-y-4">
+        <div class="bg-white rounded-2xl p-4 shadow-xs border border-slate-100 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <h2 class="text-xs font-extrabold text-slate-800">📱 바탕화면 배너 위젯 실시간 미리보기</h2>
+            <span class="text-[10px] font-bold bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full">PLUS 전용</span>
+          </div>
+          <div class="bg-gradient-to-br from-slate-900 via-indigo-950 to-violet-950 rounded-2xl p-4 text-white">
+            <p class="text-[11px] text-amber-300 font-bold">🔥 오늘 마감까지 3시간 남았어요!</p>
+            <p class="text-xs font-extrabold mt-0.5">나만의 핵심 루틴 · 그룹 실시간 연동</p>
+          </div>
+        </div>
+        <div class="bg-white rounded-2xl p-4 border-2 border-indigo-600 shadow-sm relative">
+          <span class="absolute -top-2.5 right-4 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-[10px] font-extrabold px-2.5 py-0.5 rounded-full">BEST · 최대 6명</span>
+          <div class="flex items-center justify-between">
+            <div>
+              <h4 class="text-sm font-extrabold text-slate-900">영포티루틴 그룹 플러스</h4>
+              <p class="text-[11px] text-slate-500 mt-0.5">최대 6명 그룹원 전원 플러스 혜택 (1인당 약 1,300원)</p>
+            </div>
+            <p class="text-base font-extrabold text-indigo-600 shrink-0">월 7,900원</p>
+          </div>
+          <button onclick="showToast('🎉 영포티루틴 그룹 플러스 7일 무료 체험이 적용되었습니다!')" class="mt-3 w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl transition">
+            그룹 플러스 시작하기
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <!-- 하단 내비게이션 탭 -->
+    <nav class="absolute bottom-0 inset-x-0 bg-white/95 backdrop-blur-md border-t border-slate-100 px-2 pt-2 pb-5 flex items-center justify-around z-20">
+      <button onclick="switchTab('today')" class="nav-btn flex flex-col items-center gap-1 text-indigo-600 font-extrabold transition" data-tab="today">
+        <i data-lucide="check-circle-2" class="w-5 h-5"></i><span class="text-[11px]">오늘루틴</span>
+      </button>
+      <button onclick="switchTab('explore')" class="nav-btn flex flex-col items-center gap-1 text-slate-400 hover:text-slate-600 font-medium transition" data-tab="explore">
+        <i data-lucide="compass" class="w-5 h-5"></i><span class="text-[11px]">탐색·설계</span>
+      </button>
+      <button onclick="switchTab('report')" class="nav-btn flex flex-col items-center gap-1 text-slate-400 hover:text-slate-600 font-medium transition" data-tab="report">
+        <i data-lucide="book-open-check" class="w-5 h-5"></i><span class="text-[11px]">리포트·일기</span>
+      </button>
+      <button onclick="switchTab('plus')" class="nav-btn flex flex-col items-center gap-1 text-slate-400 hover:text-slate-600 font-medium transition" data-tab="plus">
+        <i data-lucide="sparkles" class="w-5 h-5"></i><span class="text-[11px]">플러스</span>
+      </button>
+    </nav>
+
+    <!-- ================= 모달 C: 상대방 프로필 상세 보기 & 사진 크게 보기 & 친구 추가 & 1:1 메시지 ================= -->
+    <div id="peer-profile-modal" class="hidden absolute inset-0 bg-slate-900/65 backdrop-blur-xs z-30 flex items-center justify-center p-5">
+      <div class="bg-white rounded-3xl w-full p-5 shadow-2xl animate-pop space-y-4">
+        <div class="flex items-center justify-between">
+          <span id="peer-modal-badge" class="text-xs font-extrabold bg-violet-50 text-violet-700 px-2.5 py-1 rounded-full">👤 팀원 프로필</span>
+          <button onclick="closePeerProfileModal()" class="p-1 text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+
+        <!-- 큼직한 프로필 사진 / 아바타 (사진 클릭 시 원본 크게 보기) -->
+        <div class="flex flex-col items-center text-center space-y-2">
+          <div id="peer-modal-avatar-box" onclick="openFullImageViewer()" class="w-24 h-24 rounded-full bg-indigo-50 border-4 border-indigo-100 flex items-center justify-center text-4xl overflow-hidden shadow-md cursor-pointer relative group">
+            🙋🏻‍♂️
+          </div>
+          <p id="peer-modal-zoom-hint" class="hidden text-[10px] font-bold text-indigo-500">🔍 사진을 누르면 크게 볼 수 있어요</p>
+          <div>
+            <h3 id="peer-modal-nickname" class="text-base font-extrabold text-slate-900">닉네임</h3>
+            <p id="peer-modal-bio" class="text-xs text-slate-500 mt-0.5">상태메시지</p>
+          </div>
+        </div>
+
+        <!-- 오늘 달성률 & 최근 피드 요약 -->
+        <div class="bg-slate-50 rounded-2xl p-3.5 border border-slate-100 space-y-2">
+          <div class="flex items-center justify-between text-xs">
+            <span class="font-bold text-slate-600">오늘 루틴 달성률</span>
+            <span id="peer-modal-progress-text" class="font-extrabold text-indigo-600">0%</span>
+          </div>
+          <div class="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+            <div id="peer-modal-progress-bar" class="h-full bg-indigo-600 rounded-full transition-all duration-300" style="width: 0%;"></div>
+          </div>
+          <div id="peer-modal-recent-feed" class="pt-1 text-[11px] text-slate-500 border-t border-slate-200/70">
+            최근 완료 기록이 없습니다.
+          </div>
+        </div>
+
+        <!-- 친구 추가 & 1:1 메시지 & 응원/찌르기 버튼 -->
+        <div id="peer-modal-actions" class="grid grid-cols-3 gap-1.5">
+          <button id="peer-friend-toggle-btn" onclick="toggleFriendFromModal()" class="py-2.5 bg-amber-400 hover:bg-amber-300 text-slate-900 font-extrabold text-[11px] rounded-xl shadow-2xs transition">
+            ⭐ 친구 추가
+          </button>
+          <button onclick="openDmFromPeerModal()" class="py-2.5 bg-violet-600 hover:bg-violet-700 text-white font-extrabold text-[11px] rounded-xl shadow-2xs transition">
+            💬 1:1 메시지
+          </button>
+          <button id="peer-cheer-poke-btn" onclick="sendCheerFromPeerModal()" class="py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-[11px] rounded-xl shadow-2xs transition">
+            👏 응원하기
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= 모달 D: 내 친구 목록 & 실시간 1:1 메시지 모달 ================= -->
+    <div id="friends-list-modal" class="hidden absolute inset-0 bg-slate-900/60 backdrop-blur-xs z-30 flex items-center justify-center p-5">
+      <div class="bg-white rounded-3xl w-full p-5 shadow-xl animate-pop space-y-3.5 max-h-[82vh] flex flex-col">
+        <div class="flex items-center justify-between shrink-0">
+          <div class="flex items-center gap-1.5">
+            <span class="text-xs font-extrabold bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full">⭐ 친구 목록 & 1:1 메시지</span>
+            <span id="friends-modal-count" class="text-xs font-extrabold text-slate-500">0명</span>
+          </div>
+          <button onclick="closeFriendsListModal()" class="p-1 text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+
+        <!-- 친구 목록 뷰 -->
+        <div id="friends-directory-view" class="flex-1 flex flex-col space-y-3 overflow-hidden">
+          <!-- 닉네임으로 직접 친구 추가 입력창 -->
+          <div class="flex gap-1.5 shrink-0">
+            <input id="direct-add-friend-input" type="text" maxlength="16" placeholder="닉네임 입력해 친구 추가 & 대화..." class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-indigo-500" />
+            <button onclick="addFriendByNicknameInput()" class="px-3 py-2 bg-slate-900 hover:bg-indigo-600 text-white text-xs font-extrabold rounded-xl shrink-0 transition">
+              + 추가
+            </button>
+          </div>
+
+          <!-- 저장된 친구 리스트 -->
+          <div id="friends-list-container" class="flex-1 overflow-y-auto no-scrollbar space-y-2 py-1"></div>
+
+          <button onclick="copyInviteInfo()" class="w-full py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-extrabold text-xs rounded-xl shrink-0 transition">
+            🔗 내 방 초대코드(<span id="friends-modal-code">202601</span>) 복사해서 친구 부르기
           </button>
         </div>
 
-        <!-- 개인 집중 타이머 -->
-        <div class="glass-card rounded-2xl p-5 text-center space-y-4">
-          <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-500/20 text-indigo-300">오늘 누적 집중 시간</span>
-          <div id="timer-display" class="text-4xl font-black font-mono tracking-wider text-white">00:00:00</div>
-          <div class="flex justify-center gap-3">
-            <button id="timer-toggle-btn" onclick="toggleTimer()" class="px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm flex items-center gap-1.5 transition active:scale-95">
-              <i data-lucide="play" class="w-4 h-4 fill-slate-950"></i> 집중 시작
+        <!-- 실시간 1:1 메시지 채팅 뷰 -->
+        <div id="friends-dm-view" class="hidden flex-1 flex flex-col space-y-2.5 overflow-hidden min-h-[320px]">
+          <div class="flex items-center justify-between bg-slate-50 border border-slate-200/80 px-3 py-2 rounded-xl shrink-0">
+            <button onclick="backToFriendsDirectory()" class="text-xs font-bold text-slate-500 hover:text-indigo-600 flex items-center gap-1">
+              <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> 친구 목록
             </button>
-            <button onclick="resetTimer()" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-sm transition">
-              초기화
+            <span id="dm-chat-partner-name" class="text-xs font-extrabold text-slate-900">친구 닉네임</span>
+            <span class="text-[10px] font-extrabold text-emerald-600">● LIVE</span>
+          </div>
+
+          <div id="dm-chat-messages" class="flex-1 overflow-y-auto no-scrollbar bg-slate-50/70 border border-slate-100 rounded-2xl p-3 space-y-2"></div>
+
+          <form onsubmit="sendDirectMessage(event)" class="flex gap-1.5 shrink-0">
+            <input id="dm-message-input" type="text" maxlength="200" placeholder="실시간 1:1 메시지 입력..." class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-indigo-500" />
+            <button type="submit" class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold rounded-xl shrink-0 transition active:scale-95">
+              전송
             </button>
-          </div>
-        </div>
-
-        <!-- 실시간 참여 멤버 -->
-        <div class="space-y-2">
-          <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider px-1">함께 공부 중인 멤버</h3>
-          <div id="room-members-list" class="space-y-2"></div>
+          </form>
         </div>
       </div>
-    </section>
+    </div>
 
-    <!-- ==================== 3. 리포트 & 누적 일기 탭 (더미 제거, 100% 실제 누적 데이터) ==================== -->
-    <section id="tab-report" class="hidden space-y-4">
-      <!-- 상단 실제 누적 통계 요약 -->
-      <div class="grid grid-cols-3 gap-2.5">
-        <div class="glass-card rounded-2xl p-3 text-center">
-          <p class="text-[11px] text-slate-400">누적 평균 달성률</p>
-          <p id="report-avg-rate" class="text-lg font-black text-emerald-400 mt-0.5">0%</p>
-        </div>
-        <div class="glass-card rounded-2xl p-3 text-center">
-          <p class="text-[11px] text-slate-400">연속 달성일</p>
-          <p id="report-streak-days" class="text-lg font-black text-indigo-400 mt-0.5">0일</p>
-        </div>
-        <div class="glass-card rounded-2xl p-3 text-center">
-          <p class="text-[11px] text-slate-400">기록된 일기</p>
-          <p id="report-diary-count" class="text-lg font-black text-amber-400 mt-0.5">0편</p>
-        </div>
-      </div>
+    <!-- ================= 모달 E: 프로필 사진 전체화면 확대 뷰어 ================= -->
+    <div id="full-image-viewer" onclick="closeFullImageViewer()" class="hidden absolute inset-0 bg-black/90 z-50 flex flex-col items-center justify-center p-5 cursor-pointer">
+      <img id="full-image-target" src="" alt="프로필 원본" class="max-w-full max-h-[75vh] rounded-2xl object-contain shadow-2xl" />
+      <p class="text-white/80 text-xs font-bold mt-4">화면을 터치하면 닫힙니다</p>
+    </div>
 
-      <!-- 실제 달성률 기반 28일(4주) 잔디 히트맵 -->
-      <div class="glass-card rounded-2xl p-4 space-y-3">
-        <div class="flex items-center justify-between">
-          <div>
-            <h3 class="text-sm font-bold text-white">실제 루틴 달성 잔디 (최근 28일)</h3>
-            <p class="text-[11px] text-slate-400">매일의 실제 루틴 완료 비율이 자동 누적됩니다</p>
-          </div>
-          <div class="flex items-center gap-1 text-[10px] text-slate-400">
-            <span>0%</span>
-            <span class="w-2.5 h-2.5 rounded-sm grass-0 inline-block"></span>
-            <span class="w-2.5 h-2.5 rounded-sm grass-1 inline-block"></span>
-            <span class="w-2.5 h-2.5 rounded-sm grass-2 inline-block"></span>
-            <span class="w-2.5 h-2.5 rounded-sm grass-3 inline-block"></span>
-            <span class="w-2.5 h-2.5 rounded-sm grass-4 inline-block"></span>
-            <span>100%</span>
-          </div>
+    <!-- ================= 모달 F: PWA 원클릭 초대코드 입장 팝업 ================= -->
+    <div id="clipboard-invite-modal" class="hidden absolute inset-0 bg-slate-900/70 backdrop-blur-xs z-40 flex items-center justify-center p-5">
+      <div class="bg-white rounded-3xl w-full p-5 shadow-2xl animate-pop text-center space-y-4">
+        <div class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto">
+          <i data-lucide="sparkles" class="w-6 h-6"></i>
         </div>
-        <div id="grass-grid" class="grid grid-cols-7 gap-2 pt-1"></div>
-      </div>
-
-      <!-- 주간 다이어리 누적 작성 & 아카이브 -->
-      <div class="glass-card rounded-2xl p-4 space-y-3">
-        <div class="flex items-center justify-between">
-          <div>
-            <h3 class="text-sm font-bold text-white">주간 다이어리 & 회고 일기</h3>
-            <p class="text-[11px] text-slate-400">작성한 날짜와 당시 달성률이 함께 누적 저장됩니다</p>
-          </div>
-          <span id="diary-today-badge" class="text-[11px] px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-semibold">오늘 기록</span>
+        <div class="space-y-1">
+          <span class="text-[10px] font-extrabold bg-indigo-50 text-indigo-700 px-2.5 py-0.5 rounded-full">📩 초대코드 감지됨</span>
+          <h3 class="text-base font-extrabold text-slate-900 pt-1">소그룹 스터디룸에 바로 입장할까요?</h3>
+          <p class="text-xs text-slate-500">초대 링크의 숫자 6자리 코드가 확인되었습니다</p>
         </div>
-
-        <form onsubmit="saveDiaryEntry(event)" class="space-y-2.5">
-          <div class="flex gap-2">
-            <select id="diary-mood" class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none">
-              <option value="🔥 열정 가득">🔥 열정 가득</option>
-              <option value="😊 뿌듯함">😊 뿌듯함</option>
-              <option value="😐 평온함">😐 평온함</option>
-              <option value="😴 조금 피곤">😴 조금 피곤</option>
-              <option value="💪 다시 다짐">💪 다시 다짐</option>
-            </select>
-            <input id="diary-title" type="text" placeholder="한 줄 제목 (예: 이번 주 목표 80% 돌파!)" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500" required />
-          </div>
-          <textarea id="diary-content" rows="3" placeholder="오늘 또는 이번 주 루틴을 진행하며 느낀 점, 잘한 점, 개선할 점을 자유롭게 기록하세요. 저장 시 계속 누적됩니다." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 resize-none" required></textarea>
-          <button type="submit" class="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition active:scale-98">
-            다이어리 누적 저장하기
+        <div id="detected-invite-code" class="text-2xl font-extrabold font-mono tracking-widest text-indigo-700 bg-indigo-50/70 border border-indigo-100 py-2.5 rounded-2xl">
+          000000
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="dismissClipboardInvite()" class="py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs rounded-xl transition">
+            나중에
           </button>
-        </form>
-
-        <!-- 누적된 일기 타임라인 목록 -->
-        <div class="pt-2 border-t border-slate-800 space-y-2.5">
-          <h4 class="text-xs font-bold text-slate-400">누적 다이어리 기록</h4>
-          <div id="diary-archive-list" class="space-y-2.5 max-h-80 overflow-y-auto pr-1"></div>
+          <button onclick="acceptClipboardInvite()" class="py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition">
+            원클릭 입장 🚀
+          </button>
         </div>
       </div>
-    </section>
+    </div>
 
-  </main>
-
-  <!-- 하단 내비게이션 바 -->
-  <nav class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md glass border-t border-slate-800/90 px-6 py-2.5 flex justify-around items-center z-30">
-    <button onclick="switchTab('routine')" id="nav-routine" class="flex flex-col items-center gap-1 text-indigo-400 font-bold text-[11px]">
-      <i data-lucide="check-circle-2" class="w-5 h-5"></i>
-      <span>오늘 루틴</span>
-    </button>
-    <button onclick="switchTab('room')" id="nav-room" class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 font-medium text-[11px]">
-      <i data-lucide="flame" class="w-5 h-5"></i>
-      <span>스터디룸</span>
-    </button>
-    <button onclick="switchTab('report')" id="nav-report" class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 font-medium text-[11px]">
-      <i data-lucide="calendar-days" class="w-5 h-5"></i>
-      <span>리포트·일기</span>
-    </button>
-  </nav>
-
-  <!-- ==================== 모달 1: 로그인 저장 & 계정 관리 ==================== -->
-  <div id="auth-modal" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="glass-card w-full max-w-sm rounded-2xl p-5 space-y-4 border border-slate-700 shadow-2xl">
-      <div class="flex items-center justify-between">
-        <h3 class="text-base font-bold text-white flex items-center gap-2">
-          <i data-lucide="shield-check" class="w-5 h-5 text-emerald-400"></i> 계정 로그인 & 저장
-        </h3>
-        <button onclick="closeAuthModal()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
-      </div>
-
-      <!-- 저장된 계정 빠른 로그인 목록 -->
-      <div id="saved-accounts-section" class="hidden space-y-2">
-        <p class="text-[11px] font-semibold text-slate-400">이 기기에 저장된 계정 (원클릭 로그인)</p>
-        <div id="saved-accounts-list" class="space-y-1.5 max-h-32 overflow-y-auto"></div>
-      </div>
-
-      <form onsubmit="handleLoginSubmit(event)" class="space-y-3">
-        <div>
-          <label class="text-xs text-slate-400 block mb-1">닉네임 (친구 추가 및 메시지용 고유 이름)</label>
-          <input id="auth-nickname" type="text" placeholder="예: 열공하는수험생" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500" required />
+    <!-- ================= 모달 A: 디시인사이드식 닉네임+비밀번호 간편 로그인 모달 ================= -->
+    <div id="dc-login-modal" class="hidden absolute inset-0 bg-slate-900/70 backdrop-blur-xs z-40 flex items-center justify-center p-5">
+      <div class="bg-white rounded-3xl w-full p-5 shadow-2xl animate-pop space-y-3.5 max-h-[88vh] overflow-y-auto no-scrollbar">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-xl bg-indigo-600 text-white font-extrabold text-[11px] flex items-center justify-center">영포티</div>
+            <div>
+              <h3 class="text-sm font-extrabold text-slate-900">간편 닉네임 입장 · 로그인</h3>
+              <p class="text-[10px] text-slate-400">로그인 상태 유지 및 기기 내 계정 저장/전환</p>
+            </div>
+          </div>
+          <button id="dc-login-close-btn" onclick="closeDcLoginModal()" class="p-1 text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
         </div>
-        <div>
-          <label class="text-xs text-slate-400 block mb-1">간편 비밀번호 (4자리 이상)</label>
-          <input id="auth-password" type="password" placeholder="••••" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500" required />
+
+        <!-- 기기 내 저장된 계정 원클릭 전환 섹션 -->
+        <div id="saved-accounts-box" class="hidden bg-slate-50 border border-slate-200/80 rounded-2xl p-3 space-y-2">
+          <p class="text-[11px] font-extrabold text-slate-700">📱 이 기기에 저장된 계정 (터치 시 즉시 로그인)</p>
+          <div id="saved-accounts-list" class="space-y-1.5 max-h-28 overflow-y-auto no-scrollbar"></div>
         </div>
-        <div class="flex items-center justify-between pt-1">
-          <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
-            <input id="auth-remember" type="checkbox" checked class="w-4 h-4 rounded accent-indigo-500" />
-            <span>로그인 상태 유지 및 계정 저장</span>
+
+        <div class="bg-indigo-50/70 border border-indigo-100 rounded-2xl p-3 text-[11px] text-indigo-900 leading-relaxed">
+          💡 <strong>고정닉 모드:</strong> 닉네임과 4자리 비밀번호로 로그인하면 기기에 자동 저장되며, 다른 기기에서도 내 루틴·잔디·일기·친구 목록을 그대로 불러옵니다.
+        </div>
+
+        <div class="space-y-2.5">
+          <div>
+            <label class="text-[11px] font-bold text-slate-600">닉네임</label>
+            <input id="login-nick-input" type="text" maxlength="16" placeholder="예: 동아대갓생러" class="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-indigo-500" />
+          </div>
+          <div>
+            <label class="text-[11px] font-bold text-slate-600">비밀번호 (숫자/문자 4자리 이상)</label>
+            <input id="login-pw-input" type="password" maxlength="20" placeholder="••••" class="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-indigo-500" />
+          </div>
+          <label class="flex items-center gap-2 text-[11px] font-bold text-slate-600 cursor-pointer pt-0.5">
+            <input id="login-remember-check" type="checkbox" checked class="w-4 h-4 rounded accent-indigo-600" />
+            <span>로그인 상태 유지 및 이 기기에 계정 저장</span>
           </label>
         </div>
-        <button type="submit" class="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm transition">
-          로그인 / 새 계정 시작
-        </button>
-      </form>
-    </div>
-  </div>
 
-  <!-- ==================== 모달 2: 친구 목록 & 실시간 1:1 메시지 ==================== -->
-  <div id="friends-modal" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="glass-card w-full max-w-sm rounded-2xl p-5 space-y-4 border border-slate-700 shadow-2xl max-h-[85vh] flex flex-col">
-      <div class="flex items-center justify-between shrink-0">
-        <h3 class="text-base font-bold text-white flex items-center gap-2">
-          <i data-lucide="star" class="w-5 h-5 text-amber-400 fill-amber-400"></i> 친구 목록 & 1:1 메시지
-        </h3>
-        <button onclick="closeFriendsModal()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
-      </div>
-
-      <!-- 친구 추가 입력 -->
-      <form onsubmit="addFriend(event)" class="flex gap-2 shrink-0">
-        <input id="friend-nickname-input" type="text" placeholder="친구 닉네임 입력" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400" required />
-        <button type="submit" class="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shrink-0">
-          + 추가
-        </button>
-      </form>
-
-      <!-- 친구 리스트 뷰 -->
-      <div id="friends-list-view" class="flex-1 overflow-y-auto space-y-2"></div>
-
-      <!-- 1:1 채팅 뷰 (친구 선택 시 전환) -->
-      <div id="dm-chat-view" class="hidden flex-1 flex flex-col min-h-[300px] space-y-2.5">
-        <div class="flex items-center justify-between bg-slate-900/90 px-3 py-2 rounded-xl border border-slate-800 shrink-0">
-          <button onclick="backToFriendsList()" class="text-xs text-slate-400 hover:text-white flex items-center gap-1">
-            <i data-lucide="arrow-left" class="w-4 h-4"></i> 목록
+        <div class="space-y-2 pt-1">
+          <button id="dc-login-submit-btn" onclick="submitDcLogin()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl shadow-sm transition">
+            닉네임 · 비밀번호로 입장하기 🚀
           </button>
-          <span id="dm-partner-name" class="text-xs font-bold text-amber-400">친구 이름</span>
-          <span class="text-[10px] text-emerald-400">● 실시간</span>
+          <button onclick="enterAsGuest()" class="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs rounded-xl transition">
+            유동(게스트)으로 바로 둘러보기
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= 모달 B: 내 프로필 수정 창 ================= -->
+    <div id="profile-edit-modal" class="hidden absolute inset-0 bg-slate-900/60 backdrop-blur-xs z-30 flex items-center justify-center p-5">
+      <div class="bg-white rounded-3xl w-full p-5 shadow-xl animate-pop space-y-4">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-extrabold bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full">👤 내 프로필 설정</span>
+          <button onclick="closeProfileModal()" class="p-1 text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
         </div>
 
-        <div id="dm-messages-box" class="flex-1 overflow-y-auto space-y-2 p-2 bg-slate-950/60 rounded-xl border border-slate-800/80 max-h-60"></div>
+        <div class="flex flex-col items-center gap-2">
+          <input type="file" id="profile-photo-input" accept="image/*" class="hidden" onchange="handleProfilePhotoSelect(event)" />
+          <div onclick="document.getElementById('profile-photo-input').click()" class="relative cursor-pointer group">
+            <div id="profile-preview-circle" class="w-20 h-20 rounded-full bg-indigo-50 border-2 border-indigo-200 flex items-center justify-center text-3xl overflow-hidden shadow-xs">
+              🙋🏻‍♂️
+            </div>
+            <span class="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-sm border-2 border-white">
+              <i data-lucide="camera" class="w-3.5 h-3.5"></i>
+            </span>
+          </div>
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="document.getElementById('profile-photo-input').click()" class="text-[11px] font-bold text-indigo-600 hover:underline">
+              📷 앨범에서 프로필 사진 선택
+            </button>
+            <button type="button" id="reset-profile-photo-btn" onclick="resetProfileToEmoji()" class="hidden text-[11px] font-bold text-slate-400 hover:text-rose-500">
+              · 사진 지우기
+            </button>
+          </div>
 
-        <form onsubmit="sendDirectMessage(event)" class="flex gap-2 shrink-0">
-          <input id="dm-input" type="text" placeholder="메시지를 입력하세요..." class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500" required />
-          <button type="submit" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shrink-0">
-            전송
+          <div class="flex items-center gap-1.5 pt-1">
+            <button type="button" onclick="selectProfileEmoji('🙋🏻‍♂️')" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-indigo-100 text-base flex items-center justify-center">🙋🏻‍♂️</button>
+            <button type="button" onclick="selectProfileEmoji('👩🏻‍🎓')" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-indigo-100 text-base flex items-center justify-center">👩🏻‍🎓</button>
+            <button type="button" onclick="selectProfileEmoji('🧑🏻‍💻')" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-indigo-100 text-base flex items-center justify-center">🧑🏻‍💻</button>
+            <button type="button" onclick="selectProfileEmoji('🦊')" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-indigo-100 text-base flex items-center justify-center">🦊</button>
+            <button type="button" onclick="selectProfileEmoji('🐻')" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-indigo-100 text-base flex items-center justify-center">🐻</button>
+            <button type="button" onclick="selectProfileEmoji('🔥')" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-indigo-100 text-base flex items-center justify-center">🔥</button>
+          </div>
+        </div>
+
+        <div class="space-y-2.5">
+          <div>
+            <label class="text-[11px] font-bold text-slate-600">닉네임</label>
+            <input id="profile-nick-input" type="text" maxlength="16" placeholder="닉네임 입력" class="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-indigo-500" />
+          </div>
+          <div>
+            <label class="text-[11px] font-bold text-slate-600">비밀번호 (Supabase 관리 및 재로그인용)</label>
+            <input id="profile-pw-input" type="password" maxlength="20" placeholder="비밀번호 설정 또는 변경" class="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-indigo-500" />
+          </div>
+          <div>
+            <label class="text-[11px] font-bold text-slate-600">오늘의 한 줄 각오 (소그룹 멤버들에게 표시)</label>
+            <input id="profile-bio-input" type="text" maxlength="35" placeholder="예: 토익 900점 가자 🔥" class="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-indigo-500" />
+          </div>
+        </div>
+
+        <div class="space-y-2">
+          <button id="save-profile-btn" onclick="saveProfileChanges()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl shadow-sm transition">
+            프로필 저장하기 ✅
           </button>
-        </form>
+          <button onclick="switchAccountFromProfile()" class="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-[11px] rounded-xl transition">
+            🔄 다른 닉네임·비밀번호로 로그인 / 계정 전환
+          </button>
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- ==================== 모달 3: 클립보드 초대코드 자동 감지 팝업 ==================== -->
-  <div id="clipboard-invite-modal" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="glass-card w-full max-w-xs rounded-2xl p-5 text-center space-y-4 border border-indigo-500/40 shadow-2xl">
-      <div class="w-12 h-12 rounded-2xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center mx-auto">
-        <i data-lucide="sparkles" class="w-6 h-6"></i>
-      </div>
-      <div class="space-y-1">
-        <h3 class="text-base font-bold text-white">초대코드가 감지되었습니다!</h3>
-        <p class="text-xs text-slate-400">방금 복사한 스터디룸으로 바로 입장할까요?</p>
-      </div>
-      <div id="detected-invite-code" class="text-2xl font-black font-mono tracking-widest text-emerald-400 bg-slate-900 py-2 rounded-xl border border-slate-800">
-        000000
-      </div>
-      <div class="flex gap-2">
-        <button onclick="dismissClipboardInvite()" class="flex-1 py-2.5 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold">
-          취소
-        </button>
-        <button onclick="acceptClipboardInvite()" class="flex-1 py-2.5 rounded-xl bg-emerald-500 text-slate-950 text-xs font-bold">
-          바로 입장하기
+    <!-- ================= 모달 0: 나만의 루틴 직접 추가/수정 모달 ================= -->
+    <div id="routine-form-modal" class="hidden absolute inset-0 bg-slate-900/55 backdrop-blur-xs z-30 flex items-center justify-center p-5">
+      <div class="bg-white rounded-3xl w-full p-5 shadow-xl animate-pop space-y-3.5">
+        <div class="flex items-center justify-between">
+          <span id="routine-form-badge" class="text-xs font-extrabold bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full">✨ 나만의 루틴 만들기</span>
+          <button onclick="closeRoutineFormModal()" class="p-1 text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+
+        <div class="space-y-2.5">
+          <div>
+            <label class="text-[11px] font-bold text-slate-600">아이콘 & 루틴 이름</label>
+            <div class="flex gap-1.5 mt-1">
+              <select id="routine-emoji-input" class="bg-slate-50 border border-slate-200 rounded-xl px-2 py-2.5 text-base">
+                <option value="📚">📚</option>
+                <option value="💻">💻</option>
+                <option value="🏃🏻‍♂️">🏃🏻‍♂️</option>
+                <option value="💧">💧</option>
+                <option value="💪">💪</option>
+                <option value="🧘">🧘</option>
+                <option value="🇬🇧">🇬🇧</option>
+                <option value="⏰">⏰</option>
+              </select>
+              <input id="routine-title-input" type="text" maxlength="40" placeholder="예: 토익 RC 1세트 풀기" class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-indigo-500" />
+            </div>
+          </div>
+
+          <div>
+            <label class="text-[11px] font-bold text-slate-600">목표 시간</label>
+            <input id="routine-time-input" type="time" value="09:00" class="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-indigo-500" />
+          </div>
+        </div>
+
+        <button onclick="saveCustomRoutine()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl shadow-sm transition">
+          루틴 저장하기 ✅
         </button>
       </div>
     </div>
+
+    <!-- ================= 모달 2: 쉬는 날 쿠폰 선택 모달 ================= -->
+    <div id="coupon-modal" class="hidden absolute inset-0 bg-slate-900/55 backdrop-blur-xs z-30 flex items-center justify-center p-5">
+      <div class="bg-white rounded-3xl w-full p-5 shadow-xl animate-pop space-y-3">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-extrabold bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full">🎫 쉬는 날 쿠폰 사용</span>
+          <button onclick="closeRestCouponModal()" class="p-1 text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+        <h3 class="text-base font-extrabold text-slate-900">오늘 쉬어갈 루틴을 선택하세요</h3>
+        <div id="coupon-routine-choices" class="space-y-2 py-1"></div>
+      </div>
+    </div>
+
+    <!-- ================= 모달 3: 실시간 초대코드 발급 & 입장 모달 ================= -->
+    <div id="invite-join-modal" class="hidden absolute inset-0 bg-slate-900/60 backdrop-blur-xs z-30 flex items-center justify-center p-5">
+      <div class="bg-white rounded-3xl w-full p-5 shadow-xl animate-pop space-y-4">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-extrabold bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full">🔗 실시간 소그룹 초대·입장</span>
+          <button onclick="closeInviteJoinModal()" class="p-1 text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+
+        <div class="bg-indigo-50/80 border border-indigo-100 rounded-2xl p-3.5 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold text-indigo-900">현재 참여 중인 소그룹 초대코드 (숫자 6자리)</span>
+            <button onclick="createNewGroupRoom()" class="text-[10px] font-extrabold text-violet-700 underline">+ 새 방 만들기</button>
+          </div>
+          <div class="flex items-center justify-between bg-white px-3 py-2 rounded-xl border border-indigo-200">
+            <span id="modal-current-code" class="text-base font-extrabold font-mono tracking-widest text-indigo-700">202601</span>
+            <button onclick="copyInviteInfo()" class="px-2.5 py-1 bg-indigo-600 text-white text-[11px] font-bold rounded-lg">링크·코드 복사</button>
+          </div>
+        </div>
+
+        <div class="space-y-2.5 pt-1 border-t border-slate-100">
+          <h4 class="text-xs font-extrabold text-slate-800">다른 초대코드 방으로 이동하기</h4>
+          <div>
+            <label class="text-[10px] font-bold text-slate-500">숫자 6자리 초대코드 입력</label>
+            <input id="join-code-input" type="text" inputmode="numeric" maxlength="10" placeholder="예: 482910" class="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold font-mono tracking-widest focus:outline-none focus:border-indigo-500" />
+          </div>
+          <button onclick="joinGroupWithCode()" class="w-full py-3 bg-slate-900 hover:bg-indigo-600 text-white font-extrabold text-xs rounded-xl transition">
+            초대코드 방으로 입장하기 🚀
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="toast-container" class="pointer-events-none absolute top-16 inset-x-4 z-40 flex flex-col items-center gap-2"></div>
   </div>
 
   <script>
     // =========================================================================
-    // 1. PWA Manifest 동적 생성 (홈 화면 추가 시 단독 앱 모드 실행)
+    // PWA Manifest & 앱 아이콘 동적 생성 (홈 화면 추가 시 네이티브 앱 모드 실행)
     // =========================================================================
-    (function setupManifest() {
+    (function setupPWA() {
+      const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#4f46e5"/><stop offset="100%" stop-color="#7c3aed"/></linearGradient></defs><rect width="512" height="512" rx="112" fill="url(#g)"/><text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" fill="#ffffff" font-family="sans-serif" font-weight="900" font-size="140">영포티</text></svg>`;
+      const iconUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(iconSvg);
+      document.getElementById('apple-touch-icon').href = iconUrl;
+
       const manifest = {
-        name: "Y40 루틴 & 스터디 메이트",
-        short_name: "Y40 Routine",
+        name: '영포티루틴 - 실시간 소그룹 루틴',
+        short_name: '영포티루틴',
         start_url: window.location.pathname,
-        display: "standalone",
-        background_color: "#090d16",
-        theme_color: "#090d16",
-        icons: [
-          {
-            src: "data:image/svg+xml;charset=utf-8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="110" fill="#0f172a"/><text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-weight="900" font-size="190" fill="#34d399">Y40</text></svg>'),
-            sizes: "512x512",
-            type: "image/svg+xml"
-          }
-        ]
+        display: 'standalone',
+        background_color: '#ffffff',
+        theme_color: '#4f46e5',
+        icons: [{ src: iconUrl, sizes: '512x512', type: 'image/svg+xml', purpose: 'any maskable' }]
       };
       const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
-      document.getElementById('manifest-placeholder').setAttribute('href', URL.createObjectURL(blob));
+      document.getElementById('pwa-manifest').href = URL.createObjectURL(blob);
     })();
 
     // =========================================================================
-    // 2. Supabase 설정 (본인의 URL과 ANON KEY가 있다면 아래에 입력)
+    // Supabase 연결 설정 (원본 index12.html의 실제 프로젝트 DB 테이블 연동)
     // =========================================================================
-    const SUPABASE_URL = "https://envyzxfscaxfrckhleqn.supabase.co";
-    const SUPABASE_ANON_KEY = "sb_publishable_ZErtKJDE2Y7N7pzSlcH2FQ_3DdSiNPV";
-    let supabaseClient = null;
-    if (SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase) {
-      supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const SUPABASE_URL = 'https://envyzxfscaxfrckhleqn.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVudnl6eGZzY2F4ZnJja2hsZXFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTU0OTI0ODgsImV4cCI6MjExMTA2ODQ4OH0.RDjM8UkVknTC75BR72vKAGVLpV15Fd9ek3fBiw6KppA';
+
+    const isSupabaseConfigured = !SUPABASE_URL.includes('YOUR_PROJECT_ID');
+    const sb = isSupabaseConfigured ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
     }
 
-    // =========================================================================
-    // 3. 상태 및 스토리지 키 (더미 데이터 완전 제거, 순수 사용자 누적 데이터)
-    // =========================================================================
-    const STORAGE_KEYS = {
-      USER: 'y40_current_user_v2',
-      SAVED_ACCOUNTS: 'y40_saved_accounts_v2',
-      ROUTINES: 'y40_routines_v2',
-      HISTORY: 'y40_daily_history_v2',   // { "2026-11-25": { completed: 3, total: 4, rate: 75 } }
-      DIARIES: 'y40_diaries_v2',         // [{ id, date, weekLabel, mood, title, content, rate }]
-      FRIENDS: 'y40_friends_v2',         // ["친구1", "친구2"]
-      MESSAGES: 'y40_dm_messages_v2',    // { "친구1": [{ sender, text, time }] }
-      TIMER: 'y40_timer_v2'              // { date, seconds }
-    };
+    function normalize6DigitCode(raw) {
+      const digits = String(raw ?? '').replace(/^y40-/i, '').replace(/\D/g, '');
+      return digits.length === 6 ? digits : '';
+    }
 
-    let currentUser = null;
-    let routines = [];
-    let dailyHistory = {};
-    let diaries = [];
-    let friends = [];
-    let dmMessages = {};
-    let activeDmPartner = null;
+    function generateNumeric6Code() {
+      return String(Math.floor(100000 + Math.random() * 900000));
+    }
 
-    let currentRoomCode = null;
-    let roomChannel = null;
-    let dmChannel = null;
-    let roomMembers = {};
-
-    let timerSeconds = 0;
-    let timerInterval = null;
-    let pendingInviteCode = null;
-
-    // 오늘 날짜 문자열 (YYYY-MM-DD)
     function getTodayStr() {
       const now = new Date();
       const y = now.getFullYear();
@@ -504,758 +801,775 @@
       return `${d.getMonth() + 1}월 ${weekNum}주차`;
     }
 
-    // =========================================================================
-    // 4. 초기화 & 초대 링크(Safari / PWA 연동) 처리
-    // =========================================================================
-    window.addEventListener('DOMContentLoaded', async () => {
-      lucide.createIcons();
-      document.getElementById('header-date').textContent = new Date().toLocaleDateString('ko-KR', {
-        month: 'long', day: 'numeric', weekday: 'short'
-      });
+    // 기존 'Y40-2026' 형태 코드가 저장되어 있다면 숫자 6자리로 자동 정리
+    const storedRawCode = localStorage.getItem('y40_invite_code');
+    const initialCode = normalize6DigitCode(storedRawCode) || '202601';
 
-      loadLocalData();
-      checkAutoLogin();
-      handleInviteUrlAndClipboard();
-      renderAll();
-    });
+    // 상태 관리
+    let currentGroup = {
+      id: localStorage.getItem('y40_group_id') || null,
+      name: localStorage.getItem('y40_group_name') || '영포티 스터디 루틴방',
+      code: initialCode
+    };
 
-    function showToast(msg, type = 'info') {
-      const container = document.getElementById('toast-container');
-      const el = document.createElement('div');
-      const bg = type === 'success' ? 'bg-emerald-600 text-white' : type === 'warn' ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-white border border-slate-700';
-      el.className = `${bg} px-4 py-2.5 rounded-xl text-xs font-semibold shadow-xl transition-all duration-300 text-center`;
-      el.textContent = msg;
-      container.appendChild(el);
-      setTimeout(() => {
-        el.style.opacity = '0';
-        setTimeout(() => el.remove(), 300);
-      }, 2800);
+    let currentMember = {
+      id: localStorage.getItem('y40_member_id') || null,
+      dcUserId: localStorage.getItem('y40_dc_user_id') || null,
+      nickname: localStorage.getItem('y40_nickname') || '',
+      password: localStorage.getItem('y40_password') || '',
+      avatar: localStorage.getItem('y40_avatar') || '🙋🏻‍♂️',
+      photoUrl: localStorage.getItem('y40_photo_url') || '',
+      bio: localStorage.getItem('y40_bio') || ''
+    };
+
+    // 기본 루틴 세팅 (날짜가 바뀌면 완료 여부만 리셋)
+    const todayDateKey = getTodayStr();
+    const lastSavedRoutineDate = localStorage.getItem('y40_routine_active_date');
+    let routines = JSON.parse(localStorage.getItem('y40_routines') || 'null') || [
+      { id: 1, title: '💧 아침 기상 후 물 한 잔 & 스트레칭', time: '07:30', type: 'check', completed: false, restProtected: false, streak: 1 },
+      { id: 2, title: '📚 오늘의 핵심 집중 학습 50분', time: '14:00', type: 'check', completed: false, restProtected: false, streak: 1 },
+      { id: 3, title: '🏃🏻‍♂️ 가벼운 산책 또는 운동 30분', time: '20:00', type: 'check', completed: false, restProtected: false, streak: 1 }
+    ];
+    if (lastSavedRoutineDate && lastSavedRoutineDate !== todayDateKey) {
+      routines = routines.map(r => ({ ...r, completed: false, restProtected: false }));
+    }
+    localStorage.setItem('y40_routine_active_date', todayDateKey);
+
+    // 실제 일별 달성률 기록 & 누적 주간 다이어리 (더미 데이터 제거)
+    let dailyHistory = JSON.parse(localStorage.getItem('y40_daily_history') || '{}');
+    let weeklyDiaries = JSON.parse(localStorage.getItem('y40_weekly_diaries') || '[]');
+
+    let restCoupons = Number(localStorage.getItem('y40_coupons') ?? 2);
+    let friendsList = JSON.parse(localStorage.getItem('y40_friends') || '[]');
+    let dmMessages = JSON.parse(localStorage.getItem('y40_dm_messages') || '{}');
+    let activeDmPartner = null;
+    let dmChannel = null;
+
+    let membersList = [];
+    let liveFeeds = [];
+    let selectedPeerMember = null;
+    let pendingClipboardCode = null;
+
+    let isDiaryPrivate = false;
+    let selectedQuickMood = '🔥';
+    let editingRoutineId = null;
+
+    // 프로필 모달 임시 상태
+    let tempProfileAvatar = '🙋🏻‍♂️';
+    let tempProfilePhotoUrl = '';
+    let tempProfilePhotoFile = null;
+
+    const marketItems = [
+      { id: 'mk-prof', category: 'univ', badge: '전문가 추천', title: '현직 교수 김민형 루틴', rate: '94%', preview: ['07:30 아침 논문 1편 정독', '12:30 캠퍼스 산책 20분'], importTask: { title: '📚 아침 논문 1편 정독', time: '07:30', type: 'check' } },
+      { id: 'mk-cpa', category: 'exam', badge: '합격생 추천', title: '세무사 1차 합격생 초단기 집중 루틴', rate: '91%', preview: ['08:00 세법 조문 암기 40분', '14:00 재무회계 기출 20문제'], importTask: { title: '💻 세법 조문 암기 40분 집중', time: '08:00', type: 'check' } },
+      { id: 'mk-worker', category: 'worker', badge: '직장인 추천', title: '직장인 퇴근 후 1시간 자기계발 루틴', rate: '86%', preview: ['19:30 퇴근 직후 15분 스트레칭', '20:00 직무 독서 30분'], importTask: { title: '📚 퇴근 후 직무 아티클·독서 30분', time: '20:00', type: 'check' } }
+    ];
+
+    // 아바타 값에서 프로필 사진 URL 추출 헬퍼
+    function parseAvatarDisplay(rawAvatar) {
+      const val = String(rawAvatar || '🙋🏻‍♂️');
+      if (val.startsWith('IMG:')) {
+        return { isImage: true, src: val.slice(4), emoji: '🙋🏻‍♂️' };
+      }
+      if (val.startsWith('http://') || val.startsWith('https://') || val.startsWith('data:image/')) {
+        return { isImage: true, src: val, emoji: '🙋🏻‍♂️' };
+      }
+      return { isImage: false, src: '', emoji: val };
     }
 
-    // 초대 URL(?code=123456) 접속 및 홈 화면 앱 실행 시 클립보드 감지
-    async function handleInviteUrlAndClipboard() {
-      const params = new URLSearchParams(window.location.search);
-      const urlCode = params.get('code');
-      const cleanUrlCode = urlCode ? urlCode.replace(/^y40-/i, '').replace(/\D/g, '').slice(0, 6) : '';
+    function getEncodedAvatarValue() {
+      if (currentMember.photoUrl) {
+        return `IMG:${currentMember.photoUrl}`;
+      }
+      return currentMember.avatar || '🙋🏻‍♂️';
+    }
 
+    function renderAvatarBadgeHtml(rawAvatar, sizeClass = 'w-8 h-8 text-lg') {
+      const parsed = parseAvatarDisplay(rawAvatar);
+      if (parsed.isImage) {
+        return `<img src="${escapeHtml(parsed.src)}" alt="프로필" class="${sizeClass} rounded-full object-cover border border-slate-200 shrink-0" />`;
+      }
+      return `<span class="${sizeClass} rounded-full bg-white border border-slate-200/80 flex items-center justify-center shrink-0">${escapeHtml(parsed.emoji)}</span>`;
+    }
+
+    // ================= Safari 초대 링크 접속 & PWA 원클릭 입장 감지 =================
+    async function handleInviteUrlAndClipboard() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const rawUrlCode = urlParams.get('code');
+      const cleanUrlCode = normalize6DigitCode(rawUrlCode);
       const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
-      if (cleanUrlCode && cleanUrlCode.length === 6) {
-        // 클립보드에 자동 복사 시도
+      if (cleanUrlCode) {
         try {
           await navigator.clipboard.writeText(cleanUrlCode);
         } catch (e) {}
 
-        // URL 파라미터 정리
         window.history.replaceState({}, document.title, window.location.pathname);
 
         if (!isStandalone) {
-          // 일반 Safari 브라우저로 열린 경우: 상단 배너 안내 + 바로 입장 모달
           document.getElementById('banner-copied-code').textContent = cleanUrlCode;
           document.getElementById('invite-safari-banner').classList.remove('hidden');
+          lucide.createIcons();
         }
         openClipboardInviteModal(cleanUrlCode);
         return;
       }
 
-      // 홈 화면 웹앱(PWA)으로 열렸을 때 클립보드에 6자리 숫자 코드가 있는지 확인
       if (isStandalone && navigator.clipboard && navigator.clipboard.readText) {
         try {
           const clipText = (await navigator.clipboard.readText()).trim();
-          const extracted = clipText.replace(/^y40-/i, '');
-          if (/^\d{6}$/.test(extracted)) {
+          const extracted = normalize6DigitCode(clipText);
+          if (extracted && extracted !== currentGroup.code) {
             openClipboardInviteModal(extracted);
           }
-        } catch (e) {
-          // iOS 권한 정책상 자동 읽기 거부 시 무시
-        }
+        } catch (e) {}
       }
     }
 
     function openClipboardInviteModal(code) {
-      pendingInviteCode = code;
+      pendingClipboardCode = code;
       document.getElementById('detected-invite-code').textContent = code;
       document.getElementById('clipboard-invite-modal').classList.remove('hidden');
+      lucide.createIcons();
     }
 
     function dismissClipboardInvite() {
-      pendingInviteCode = null;
+      pendingClipboardCode = null;
       document.getElementById('clipboard-invite-modal').classList.add('hidden');
     }
 
-    function acceptClipboardInvite() {
-      if (!pendingInviteCode) return;
-      const code = pendingInviteCode;
+    async function acceptClipboardInvite() {
+      if (!pendingClipboardCode) return;
+      const code = pendingClipboardCode;
       dismissClipboardInvite();
-      switchTab('room');
       document.getElementById('join-code-input').value = code;
-      joinStudyRoom();
+      await joinGroupWithCode(code);
     }
 
-    // =========================================================================
-    // 5. 데이터 로드 & 저장 (로그인 저장 + 실제 누적 기록)
-    // =========================================================================
-    function loadLocalData() {
-      const today = getTodayStr();
-      const savedRoutines = JSON.parse(localStorage.getItem(STORAGE_KEYS.ROUTINES) || '[]');
-      // 날짜가 바뀌었으면 루틴 항목은 유지하되 완료 체크만 새 날짜 기준으로 초기화
-      const lastRoutineDate = localStorage.getItem('y40_routine_date');
-      if (lastRoutineDate && lastRoutineDate !== today) {
-        routines = savedRoutines.map(r => ({ ...r, done: false }));
-      } else {
-        routines = savedRoutines;
-      }
-      localStorage.setItem('y40_routine_date', today);
-
-      dailyHistory = JSON.parse(localStorage.getItem(STORAGE_KEYS.HISTORY) || '{}');
-      diaries = JSON.parse(localStorage.getItem(STORAGE_KEYS.DIARIES) || '[]');
-      friends = JSON.parse(localStorage.getItem(STORAGE_KEYS.FRIENDS) || '[]');
-      dmMessages = JSON.parse(localStorage.getItem(STORAGE_KEYS.MESSAGES) || '{}');
-
-      const savedTimer = JSON.parse(localStorage.getItem(STORAGE_KEYS.TIMER) || '{}');
-      timerSeconds = savedTimer.date === today ? (savedTimer.seconds || 0) : 0;
-    }
-
-    function persistAllData() {
-      localStorage.setItem(STORAGE_KEYS.ROUTINES, JSON.stringify(routines));
-      localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(dailyHistory));
-      localStorage.setItem(STORAGE_KEYS.DIARIES, JSON.stringify(diaries));
-      localStorage.setItem(STORAGE_KEYS.FRIENDS, JSON.stringify(friends));
-      localStorage.setItem(STORAGE_KEYS.MESSAGES, JSON.stringify(dmMessages));
-      localStorage.setItem(STORAGE_KEYS.TIMER, JSON.stringify({ date: getTodayStr(), seconds: timerSeconds }));
-      syncToCloud();
-    }
-
-    function checkAutoLogin() {
-      const savedUser = JSON.parse(localStorage.getItem(STORAGE_KEYS.USER) || 'null');
-      if (savedUser && savedUser.nickname) {
-        currentUser = savedUser;
-        document.getElementById('header-username').textContent = currentUser.nickname;
-        document.getElementById('sync-badge').textContent = supabaseClient ? '클라우드 동기화' : '자동 로그인됨';
-        document.getElementById('sync-badge').className = 'text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-medium';
-        initRealtimeDmChannel();
-        pullFromCloud();
-      }
-    }
-
-    function openAuthModal() {
-      renderSavedAccounts();
-      document.getElementById('auth-modal').classList.remove('hidden');
-    }
-
-    function closeAuthModal() {
-      document.getElementById('auth-modal').classList.add('hidden');
-    }
-
-    function renderSavedAccounts() {
-      const accounts = JSON.parse(localStorage.getItem(STORAGE_KEYS.SAVED_ACCOUNTS) || '[]');
-      const sec = document.getElementById('saved-accounts-section');
+    // ================= A. 디시인사이드식 간편 로그인 & 기기 내 계정 저장/전환 =================
+    function renderSavedAccountsBox() {
+      const savedAccounts = JSON.parse(localStorage.getItem('y40_accounts') || '{}');
+      const nicks = Object.keys(savedAccounts);
+      const box = document.getElementById('saved-accounts-box');
       const list = document.getElementById('saved-accounts-list');
-      if (!accounts.length) {
-        sec.classList.add('hidden');
+
+      if (nicks.length === 0) {
+        box.classList.add('hidden');
         return;
       }
-      sec.classList.remove('hidden');
-      list.innerHTML = accounts.map(acc => `
-        <div class="flex items-center justify-between bg-slate-900/90 border border-slate-800 px-3 py-2 rounded-xl">
-          <button type="button" onclick="quickLogin('${acc.nickname}', '${acc.password}')" class="flex items-center gap-2 text-left flex-1">
-            <span class="w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-300 flex items-center justify-center text-xs font-bold">${acc.nickname[0]}</span>
-            <span class="text-xs font-semibold text-white">${acc.nickname}</span>
-          </button>
-          <button type="button" onclick="removeSavedAccount('${acc.nickname}')" class="text-[11px] text-slate-500 hover:text-rose-400 px-1.5">삭제</button>
-        </div>
-      `).join('');
-    }
-
-    function quickLogin(nickname, password) {
-      document.getElementById('auth-nickname').value = nickname;
-      document.getElementById('auth-password').value = password;
-      handleLoginSubmit(new Event('submit'));
-    }
-
-    function removeSavedAccount(nickname) {
-      let accounts = JSON.parse(localStorage.getItem(STORAGE_KEYS.SAVED_ACCOUNTS) || '[]');
-      accounts = accounts.filter(a => a.nickname !== nickname);
-      localStorage.setItem(STORAGE_KEYS.SAVED_ACCOUNTS, JSON.stringify(accounts));
-      renderSavedAccounts();
-    }
-
-    async function handleLoginSubmit(e) {
-      e.preventDefault();
-      const nickname = document.getElementById('auth-nickname').value.trim();
-      const password = document.getElementById('auth-password').value.trim();
-      const remember = document.getElementById('auth-remember').checked;
-      if (!nickname || !password) return;
-
-      currentUser = { nickname, password };
-      if (remember) {
-        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(currentUser));
-        let accounts = JSON.parse(localStorage.getItem(STORAGE_KEYS.SAVED_ACCOUNTS) || '[]');
-        accounts = accounts.filter(a => a.nickname !== nickname);
-        accounts.unshift({ nickname, password });
-        localStorage.setItem(STORAGE_KEYS.SAVED_ACCOUNTS, JSON.stringify(accounts.slice(0, 5)));
-      } else {
-        localStorage.removeItem(STORAGE_KEYS.USER);
-      }
-
-      document.getElementById('header-username').textContent = nickname;
-      document.getElementById('sync-badge').textContent = supabaseClient ? '클라우드 동기화' : '로그인됨';
-      document.getElementById('sync-badge').className = 'text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-medium';
-
-      closeAuthModal();
-      showToast(`${nickname}님 환영합니다!`, 'success');
-      initRealtimeDmChannel();
-      await pullFromCloud();
-      await syncToCloud();
-    }
-
-    // Supabase 클라우드 동기화 (dc_users 테이블 연동)
-    async function syncToCloud() {
-      if (!supabaseClient || !currentUser) return;
-      try {
-        await supabaseClient.from('dc_users').upsert({
-          nickname: currentUser.nickname,
-          password: currentUser.password,
-          routines_json: routines,
-          history_json: dailyHistory,
-          diaries_json: diaries,
-          friends_json: friends,
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'nickname' });
-      } catch (err) {}
-    }
-
-    async function pullFromCloud() {
-      if (!supabaseClient || !currentUser) return;
-      try {
-        const { data } = await supabaseClient
-          .from('dc_users')
-          .select('*')
-          .eq('nickname', currentUser.nickname)
-          .eq('password', currentUser.password)
-          .single();
-
-        if (data) {
-          if (Array.isArray(data.routines_json) && data.routines_json.length) routines = data.routines_json;
-          if (data.history_json && Object.keys(data.history_json).length) {
-            dailyHistory = { ...data.history_json, ...dailyHistory };
-          }
-          if (Array.isArray(data.diaries_json) && data.diaries_json.length) {
-            const map = new Map();
-            [...data.diaries_json, ...diaries].forEach(d => map.set(d.id, d));
-            diaries = Array.from(map.values()).sort((a, b) => b.id - a.id);
-          }
-          if (Array.isArray(data.friends_json)) {
-            friends = Array.from(new Set([...friends, ...data.friends_json]));
-          }
-          persistAllData();
-          renderAll();
-        }
-      } catch (err) {}
-    }
-
-    // =========================================================================
-    // 6. 오늘의 루틴 관리 & 실제 달성률 자동 누적 기록
-    // =========================================================================
-    function addRoutine(e) {
-      e.preventDefault();
-      const input = document.getElementById('routine-input');
-      const category = document.getElementById('routine-category').value;
-      const title = input.value.trim();
-      if (!title) return;
-
-      routines.push({
-        id: Date.now(),
-        title,
-        category,
-        done: false
-      });
-      input.value = '';
-      updateTodayHistorySnapshot();
-      persistAllData();
-      renderAll();
-    }
-
-    function toggleRoutine(id) {
-      routines = routines.map(r => r.id === id ? { ...r, done: !r.done } : r);
-      updateTodayHistorySnapshot();
-      persistAllData();
-      renderAll();
-      broadcastRoomStatus();
-    }
-
-    function deleteRoutine(id) {
-      routines = routines.filter(r => r.id !== id);
-      updateTodayHistorySnapshot();
-      persistAllData();
-      renderAll();
-      broadcastRoomStatus();
-    }
-
-    // 오늘 실제 완료율 계산 후 dailyHistory에 누적 저장
-    function updateTodayHistorySnapshot() {
-      const today = getTodayStr();
-      const total = routines.length;
-      const completed = routines.filter(r => r.done).length;
-      const rate = total === 0 ? 0 : Math.round((completed / total) * 100);
-
-      if (total > 0) {
-        dailyHistory[today] = { completed, total, rate };
-      } else {
-        delete dailyHistory[today];
-      }
-      return { completed, total, rate };
-    }
-
-    function renderRoutines() {
-      const list = document.getElementById('routine-list');
-      const { completed, total, rate } = updateTodayHistorySnapshot();
-
-      document.getElementById('today-rate-text').textContent = `${rate}%`;
-      document.getElementById('today-count-text').textContent = `${completed} / ${total} 완료`;
-      document.getElementById('today-progress-bar').style.width = `${rate}%`;
-
-      if (routines.length === 0) {
-        list.innerHTML = `
-          <div class="glass-card rounded-2xl p-8 text-center space-y-2 border-dashed border-slate-700">
-            <p class="text-sm font-semibold text-slate-300">아직 등록된 오늘의 루틴이 없습니다</p>
-            <p class="text-xs text-slate-500">위 입력창에서 오늘 실천할 루틴을 추가해보세요!</p>
-          </div>
-        `;
-        return;
-      }
-
-      list.innerHTML = routines.map(r => `
-        <div class="glass-card rounded-xl p-3.5 flex items-center justify-between transition ${r.done ? 'border-emerald-500/40 bg-emerald-950/20' : ''}">
-          <button onclick="toggleRoutine(${r.id})" class="flex items-center gap-3 flex-1 text-left">
-            <div class="w-5 h-5 rounded-md flex items-center justify-center border transition ${r.done ? 'bg-emerald-500 border-emerald-500 text-slate-950' : 'border-slate-600 bg-slate-900'}">
-              ${r.done ? '<i data-lucide="check" class="w-3.5 h-3.5 stroke-[3]"></i>' : ''}
-            </div>
-            <div>
-              <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 mr-1.5">${r.category}</span>
-              <span class="text-sm font-medium ${r.done ? 'line-through text-slate-500' : 'text-slate-100'}">${escapeHtml(r.title)}</span>
-            </div>
-          </button>
-          <button onclick="deleteRoutine(${r.id})" class="p-1.5 text-slate-500 hover:text-rose-400 transition">
-            <i data-lucide="trash-2" class="w-4 h-4"></i>
-          </button>
-        </div>
-      `).join('');
-      lucide.createIcons();
-    }
-
-    // =========================================================================
-    // 7. 리포트·일기 탭 (더미 0%, 실제 잔디 히트맵 + 주간 다이어리 누적 저장)
-    // =========================================================================
-    function saveDiaryEntry(e) {
-      e.preventDefault();
-      const mood = document.getElementById('diary-mood').value;
-      const title = document.getElementById('diary-title').value.trim();
-      const content = document.getElementById('diary-content').value.trim();
-      if (!title || !content) return;
-
-      const today = getTodayStr();
-      const { rate } = updateTodayHistorySnapshot();
-
-      const newEntry = {
-        id: Date.now(),
-        date: today,
-        weekLabel: getWeekLabel(today),
-        mood,
-        title,
-        content,
-        rate
-      };
-
-      diaries.unshift(newEntry);
-      document.getElementById('diary-title').value = '';
-      document.getElementById('diary-content').value = '';
-
-      persistAllData();
-      renderReportAndDiary();
-      showToast('다이어리가 안전하게 누적 저장되었습니다!', 'success');
-    }
-
-    function deleteDiaryEntry(id) {
-      diaries = diaries.filter(d => d.id !== id);
-      persistAllData();
-      renderReportAndDiary();
-    }
-
-    function renderReportAndDiary() {
-      const today = getTodayStr();
-      document.getElementById('diary-today-badge').textContent = `${getWeekLabel(today)} · ${today}`;
-
-      // 1) 상단 실제 통계 계산
-      const historyDates = Object.keys(dailyHistory).sort();
-      let avgRate = 0;
-      if (historyDates.length > 0) {
-        const sum = historyDates.reduce((acc, d) => acc + (dailyHistory[d].rate || 0), 0);
-        avgRate = Math.round(sum / historyDates.length);
-      }
-
-      // 연속 달성일(Streak) 계산 (달성률 1% 이상인 날 연속 카운트)
-      let streak = 0;
-      const checkDate = new Date();
-      for (let i = 0; i < 365; i++) {
-        const y = checkDate.getFullYear();
-        const m = String(checkDate.getMonth() + 1).padStart(2, '0');
-        const d = String(checkDate.getDate()).padStart(2, '0');
-        const key = `${y}-${m}-${d}`;
-        if (dailyHistory[key] && dailyHistory[key].rate > 0) {
-          streak++;
-          checkDate.setDate(checkDate.getDate() - 1);
-        } else if (i === 0) {
-          // 오늘은 아직 안 했어도 어제까지 연속이면 이어서 체크
-          checkDate.setDate(checkDate.getDate() - 1);
-        } else {
-          break;
-        }
-      }
-
-      document.getElementById('report-avg-rate').textContent = `${avgRate}%`;
-      document.getElementById('report-streak-days').textContent = `${streak}일`;
-      document.getElementById('report-diary-count').textContent = `${diaries.length}편`;
-
-      // 2) 최근 28일 실제 잔디 그리드 렌더링
-      const grassGrid = document.getElementById('grass-grid');
-      const cells = [];
-      for (let i = 27; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        const record = dailyHistory[key];
-        const rate = record ? record.rate : 0;
-
-        let levelClass = 'grass-0';
-        if (rate >= 90) levelClass = 'grass-4';
-        else if (rate >= 65) levelClass = 'grass-3';
-        else if (rate >= 35) levelClass = 'grass-2';
-        else if (rate > 0) levelClass = 'grass-1';
-
-        const isToday = key === today;
-        cells.push(`
-          <div title="${key}: 달성률 ${rate}%" class="aspect-square rounded-lg ${levelClass} ${isToday ? 'ring-2 ring-indigo-400' : ''} flex flex-col items-center justify-center text-[9px] font-bold ${rate > 0 ? 'text-white' : 'text-slate-500'}">
-            <span>${d.getDate()}</span>
-          </div>
-        `);
-      }
-      grassGrid.innerHTML = cells.join('');
-
-      // 3) 누적 다이어리 타임라인 렌더링
-      const archiveList = document.getElementById('diary-archive-list');
-      if (diaries.length === 0) {
-        archiveList.innerHTML = `
-          <div class="text-center py-6 text-xs text-slate-500">
-            아직 작성된 일기가 없습니다.<br/>첫 번째 주간 다이어리를 남겨보세요!
-          </div>
-        `;
-        return;
-      }
-
-      archiveList.innerHTML = diaries.map(item => `
-        <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 space-y-1.5">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-1.5">
-              <span class="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-semibold">${item.weekLabel}</span>
-              <span class="text-[11px] text-slate-400">${item.date}</span>
-              <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-bold">달성률 ${item.rate}%</span>
-            </div>
-            <button onclick="deleteDiaryEntry(${item.id})" class="text-slate-500 hover:text-rose-400 text-xs">삭제</button>
-          </div>
-          <div class="flex items-center gap-1.5">
-            <span class="text-xs">${item.mood}</span>
-            <h5 class="text-xs font-bold text-white">${escapeHtml(item.title)}</h5>
-          </div>
-          <p class="text-xs text-slate-300 leading-relaxed whitespace-pre-line">${escapeHtml(item.content)}</p>
-        </div>
-      `).join('');
-    }
-
-    // =========================================================================
-    // 8. 스터디룸 (숫자 6자리 전용 코드 생성/입장) & 집중 타이머
-    // =========================================================================
-    function generateNumeric6Code() {
-      // 100000 ~ 999999 숫자 6자리 생성 (앞자리 0 유실 방지)
-      return String(Math.floor(100000 + Math.random() * 900000));
-    }
-
-    function createStudyRoom() {
-      const code = generateNumeric6Code();
-      enterStudyRoom(code);
-      showToast(`숫자 6자리 스터디룸(${code})이 생성되었습니다!`, 'success');
-    }
-
-    function joinStudyRoom() {
-      const raw = document.getElementById('join-code-input').value.trim();
-      // 혹시 예전 형식(Y40-123456)을 붙여넣어도 숫자 6자리만 깔끔하게 추출
-      const code = raw.replace(/^y40-/i, '').replace(/\D/g, '');
-      if (code.length !== 6) {
-        showToast('숫자 6자리 초대코드를 정확히 입력해주세요.', 'warn');
-        return;
-      }
-      enterStudyRoom(code);
-      showToast(`${code} 스터디룸에 입장했습니다!`, 'success');
-    }
-
-    function enterStudyRoom(code) {
-      currentRoomCode = code;
-      document.getElementById('active-room-code').textContent = code;
-      document.getElementById('room-lobby').classList.add('hidden');
-      document.getElementById('room-active').classList.remove('hidden');
-
-      const myName = currentUser ? currentUser.nickname : '게스트(나)';
-      roomMembers = {
-        [myName]: {
-          nickname: myName,
-          rate: updateTodayHistorySnapshot().rate,
-          seconds: timerSeconds,
-          isStudying: !!timerInterval
-        }
-      };
-      renderRoomMembers();
-
-      if (supabaseClient) {
-        if (roomChannel) supabaseClient.removeChannel(roomChannel);
-        roomChannel = supabaseClient.channel(`room_${code}`, {
-          config: { presence: { key: myName } }
-        });
-
-        roomChannel
-          .on('presence', { event: 'sync' }, () => {
-            const state = roomChannel.presenceState();
-            const updated = {};
-            Object.keys(state).forEach(key => {
-              if (state[key] && state[key][0]) updated[key] = state[key][0];
-            });
-            roomMembers = updated;
-            renderRoomMembers();
-          })
-          .subscribe(async (status) => {
-            if (status === 'SUBSCRIBED') {
-              await roomChannel.track(roomMembers[myName]);
-            }
-          });
-      }
-    }
-
-    function leaveStudyRoom() {
-      if (roomChannel && supabaseClient) {
-        supabaseClient.removeChannel(roomChannel);
-        roomChannel = null;
-      }
-      currentRoomCode = null;
-      document.getElementById('room-active').classList.add('hidden');
-      document.getElementById('room-lobby').classList.remove('hidden');
-    }
-
-    async function broadcastRoomStatus() {
-      if (!currentRoomCode) return;
-      const myName = currentUser ? currentUser.nickname : '게스트(나)';
-      const payload = {
-        nickname: myName,
-        rate: updateTodayHistorySnapshot().rate,
-        seconds: timerSeconds,
-        isStudying: !!timerInterval
-      };
-      roomMembers[myName] = payload;
-      renderRoomMembers();
-      if (roomChannel) {
-        await roomChannel.track(payload);
-      }
-    }
-
-    function renderRoomMembers() {
-      const list = document.getElementById('room-members-list');
-      const members = Object.values(roomMembers);
-      list.innerHTML = members.map(m => `
-        <div class="glass-card rounded-xl p-3 flex items-center justify-between">
-          <div class="flex items-center gap-2.5">
-            <div class="relative w-8 h-8 rounded-full bg-indigo-500/20 text-indigo-300 flex items-center justify-center font-bold text-xs ${m.isStudying ? 'pulse-ring' : ''}">
-              ${escapeHtml(m.nickname[0])}
-            </div>
-            <div>
-              <div class="flex items-center gap-1.5">
-                <span class="text-xs font-bold text-white">${escapeHtml(m.nickname)}</span>
-                <span class="text-[10px] px-1.5 py-0.5 rounded ${m.isStudying ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 text-slate-400'}">
-                  ${m.isStudying ? '🔥 집중 중' : '휴식 중'}
-                </span>
-              </div>
-              <p class="text-[11px] text-slate-400 font-mono">공부시간 ${formatSeconds(m.seconds || 0)}</p>
-            </div>
-          </div>
-          <div class="text-right">
-            <span class="text-sm font-black text-emerald-400">${m.rate || 0}%</span>
-            <p class="text-[10px] text-slate-500">루틴 달성</p>
-          </div>
-        </div>
-      `).join('');
-    }
-
-    async function copyRoomInviteLink() {
-      if (!currentRoomCode) return;
-      const inviteUrl = `${window.location.origin}${window.location.pathname}?code=${currentRoomCode}`;
-      const shareText = `[Y40 스터디룸 초대]
-초대코드: ${currentRoomCode}
-바로가기: ${inviteUrl}`;
-      try {
-        await navigator.clipboard.writeText(shareText);
-        showToast(`초대링크와 코드(${currentRoomCode})가 복사되었습니다!`, 'success');
-      } catch (e) {
-        showToast(`초대코드: ${currentRoomCode}`, 'info');
-      }
-    }
-
-    function formatSeconds(sec) {
-      const h = String(Math.floor(sec / 3600)).padStart(2, '0');
-      const m = String(Math.floor((sec % 3600) / 60)).padStart(2, '0');
-      const s = String(sec % 60).padStart(2, '0');
-      return `${h}:${m}:${s}`;
-    }
-
-    function toggleTimer() {
-      const btn = document.getElementById('timer-toggle-btn');
-      if (timerInterval) {
-        clearInterval(timerInterval);
-        timerInterval = null;
-        btn.innerHTML = `<i data-lucide="play" class="w-4 h-4 fill-slate-950"></i> 집중 재개`;
-        btn.className = "px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm flex items-center gap-1.5 transition active:scale-95";
-      } else {
-        timerInterval = setInterval(() => {
-          timerSeconds++;
-          document.getElementById('timer-display').textContent = formatSeconds(timerSeconds);
-          if (timerSeconds % 10 === 0) {
-            persistAllData();
-            broadcastRoomStatus();
-          }
-        }, 1000);
-        btn.innerHTML = `<i data-lucide="pause" class="w-4 h-4 fill-slate-950"></i> 일시 정지`;
-        btn.className = "px-6 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-sm flex items-center gap-1.5 transition active:scale-95";
-      }
-      lucide.createIcons();
-      broadcastRoomStatus();
-    }
-
-    function resetTimer() {
-      if (timerInterval) {
-        clearInterval(timerInterval);
-        timerInterval = null;
-      }
-      timerSeconds = 0;
-      document.getElementById('timer-display').textContent = '00:00:00';
-      const btn = document.getElementById('timer-toggle-btn');
-      btn.innerHTML = `<i data-lucide="play" class="w-4 h-4 fill-slate-950"></i> 집중 시작`;
-      btn.className = "px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm flex items-center gap-1.5 transition active:scale-95";
-      lucide.createIcons();
-      persistAllData();
-      broadcastRoomStatus();
-    }
-
-    // =========================================================================
-    // 9. 친구 목록 & 실시간 1:1 메시지 주고받기
-    // =========================================================================
-    function openFriendsModal() {
-      document.getElementById('unread-dm-dot').classList.add('hidden');
-      backToFriendsList();
-      document.getElementById('friends-modal').classList.remove('hidden');
-    }
-
-    function closeFriendsModal() {
-      activeDmPartner = null;
-      document.getElementById('friends-modal').classList.add('hidden');
-    }
-
-    function addFriend(e) {
-      e.preventDefault();
-      const input = document.getElementById('friend-nickname-input');
-      const name = input.value.trim();
-      if (!name) return;
-      if (currentUser && name === currentUser.nickname) {
-        showToast('본인은 친구로 추가할 수 없습니다.', 'warn');
-        return;
-      }
-      if (!friends.includes(name)) {
-        friends.push(name);
-        persistAllData();
-      }
-      input.value = '';
-      renderFriendsList();
-      showToast(`${name}님이 친구 목록에 추가되었습니다.`, 'success');
-    }
-
-    function removeFriend(name) {
-      friends = friends.filter(f => f !== name);
-      persistAllData();
-      renderFriendsList();
-    }
-
-    function renderFriendsList() {
-      const container = document.getElementById('friends-list-view');
-      if (friends.length === 0) {
-        container.innerHTML = `
-          <div class="text-center py-8 text-xs text-slate-500">
-            등록된 친구가 없습니다.<br/>친구의 닉네임을 추가하고 1:1 메시지를 보내보세요!
-          </div>
-        `;
-        return;
-      }
-
-      container.innerHTML = friends.map(f => {
-        const msgs = dmMessages[f] || [];
-        const lastMsg = msgs.length ? msgs[msgs.length - 1].text : '대화 내역 없음';
+      box.classList.remove('hidden');
+      list.innerHTML = nicks.map(nick => {
+        const acc = savedAccounts[nick];
+        const avatarVal = acc.photoUrl ? `IMG:${acc.photoUrl}` : (acc.avatar || '🙋🏻‍♂️');
         return `
-          <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3 flex items-center justify-between">
-            <div class="min-w-0 flex-1 pr-2">
-              <p class="text-xs font-bold text-white truncate">${escapeHtml(f)}</p>
-              <p class="text-[11px] text-slate-400 truncate mt-0.5">${escapeHtml(lastMsg)}</p>
-            </div>
-            <div class="flex items-center gap-1.5 shrink-0">
-              <button onclick="openDmChat('${escapeHtml(f)}')" class="px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center gap-1">
-                💬 메시지
-              </button>
-              <button onclick="removeFriend('${escapeHtml(f)}')" class="p-1.5 text-slate-500 hover:text-rose-400 text-xs">
-                ✕
-              </button>
-            </div>
+          <div class="flex items-center justify-between bg-white border border-slate-200/80 px-2.5 py-1.5 rounded-xl">
+            <button type="button" onclick="quickSwitchSavedAccount('${escapeHtml(nick)}')" class="flex items-center gap-2 flex-1 text-left min-w-0">
+              ${renderAvatarBadgeHtml(avatarVal, 'w-6 h-6 text-xs')}
+              <span class="text-xs font-extrabold text-slate-800 truncate">${escapeHtml(nick)}</span>
+              ${currentMember.nickname === nick ? '<span class="text-[9px] font-extrabold bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded-full">현재 접속</span>' : ''}
+            </button>
+            <button type="button" onclick="deleteSavedAccount('${escapeHtml(nick)}')" class="text-[10px] font-bold text-slate-400 hover:text-rose-500 px-1.5">삭제</button>
           </div>
         `;
       }).join('');
     }
 
-    function openDmChat(partnerName) {
-      activeDmPartner = partnerName;
-      document.getElementById('dm-partner-name').textContent = partnerName;
-      document.getElementById('friends-list-view').classList.add('hidden');
-      document.getElementById('dm-chat-view').classList.remove('hidden');
-      renderDmMessages();
+    async function quickSwitchSavedAccount(nick) {
+      const savedAccounts = JSON.parse(localStorage.getItem('y40_accounts') || '{}');
+      const acc = savedAccounts[nick];
+      if (!acc) return;
+      document.getElementById('login-nick-input').value = nick;
+      document.getElementById('login-pw-input').value = acc.password || '';
+      await submitDcLogin();
     }
 
-    function backToFriendsList() {
+    function deleteSavedAccount(nick) {
+      const savedAccounts = JSON.parse(localStorage.getItem('y40_accounts') || '{}');
+      delete savedAccounts[nick];
+      localStorage.setItem('y40_accounts', JSON.stringify(savedAccounts));
+      renderSavedAccountsBox();
+    }
+
+    function openDcLoginModal(allowClose = true) {
+      renderSavedAccountsBox();
+      document.getElementById('login-nick-input').value = (currentMember.nickname === '게스트' || currentMember.nickname.startsWith('유동_')) ? '' : (currentMember.nickname || '');
+      document.getElementById('login-pw-input').value = currentMember.password || '';
+      document.getElementById('dc-login-close-btn').classList.toggle('hidden', !allowClose);
+      document.getElementById('dc-login-modal').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeDcLoginModal() {
+      document.getElementById('dc-login-modal').classList.add('hidden');
+    }
+
+    async function syncDcUserToSupabase(nick, pw, profileOverrides = {}) {
+      if (!sb) return null;
+      try {
+        const { data: existingUser } = await sb
+          .from('dc_users')
+          .select('*')
+          .eq('nickname', nick)
+          .maybeSingle();
+
+        if (existingUser) {
+          if (existingUser.password && existingUser.password !== pw) {
+            return { error: 'PASSWORD_MISMATCH' };
+          }
+          const updatedPayload = {
+            password: pw,
+            avatar: profileOverrides.avatar ?? existingUser.avatar ?? '🙋🏻‍♂️',
+            photo_url: profileOverrides.photoUrl ?? existingUser.photo_url ?? '',
+            bio: profileOverrides.bio ?? existingUser.bio ?? '',
+            friends: profileOverrides.friends ?? existingUser.friends ?? friendsList,
+            routines: profileOverrides.routines ?? existingUser.routines ?? routines,
+            updated_at: new Date().toISOString()
+          };
+          const { data: updated } = await sb
+            .from('dc_users')
+            .update(updatedPayload)
+            .eq('id', existingUser.id)
+            .select()
+            .maybeSingle();
+          return { user: updated || { ...existingUser, ...updatedPayload }, isNew: false };
+        } else {
+          const insertPayload = {
+            nickname: nick,
+            password: pw,
+            avatar: profileOverrides.avatar || '🙋🏻‍♂️',
+            photo_url: profileOverrides.photoUrl || '',
+            bio: profileOverrides.bio || '',
+            friends: profileOverrides.friends || friendsList,
+            routines: profileOverrides.routines || routines
+          };
+          const { data: inserted } = await sb
+            .from('dc_users')
+            .insert([insertPayload])
+            .select()
+            .maybeSingle();
+          return { user: inserted || insertPayload, isNew: true };
+        }
+      } catch (e) {
+        return null;
+      }
+    }
+
+    async function submitDcLogin() {
+      const nick = document.getElementById('login-nick-input').value.trim();
+      const pw = document.getElementById('login-pw-input').value.trim();
+      const shouldRemember = document.getElementById('login-remember-check').checked;
+
+      if (!nick) { showToast('닉네임을 입력해 주세요!'); return; }
+      if (pw.length < 4) { showToast('비밀번호를 4자리 이상 입력해 주세요!'); return; }
+
+      const submitBtn = document.getElementById('dc-login-submit-btn');
+      submitBtn.textContent = '로그인 확인 중...';
+      submitBtn.disabled = true;
+
+      const savedAccounts = JSON.parse(localStorage.getItem('y40_accounts') || '{}');
+      const localExisting = savedAccounts[nick];
+
+      if (localExisting && localExisting.password !== pw) {
+        submitBtn.textContent = '닉네임 · 비밀번호로 입장하기 🚀';
+        submitBtn.disabled = false;
+        showToast('❌ 이미 사용 중인 닉네임이거나 비밀번호가 일치하지 않습니다.');
+        return;
+      }
+
+      const remoteRes = await syncDcUserToSupabase(nick, pw, localExisting || {});
+      if (remoteRes && remoteRes.error === 'PASSWORD_MISMATCH') {
+        submitBtn.textContent = '닉네임 · 비밀번호로 입장하기 🚀';
+        submitBtn.disabled = false;
+        showToast('❌ 서버에 등록된 닉네임의 비밀번호와 일치하지 않습니다.');
+        return;
+      }
+
+      if (remoteRes && remoteRes.user && !remoteRes.isNew) {
+        const u = remoteRes.user;
+        currentMember = {
+          id: localExisting?.id || null,
+          dcUserId: u.id || null,
+          nickname: nick,
+          password: pw,
+          avatar: u.avatar || localExisting?.avatar || '🙋🏻‍♂️',
+          photoUrl: u.photo_url || localExisting?.photoUrl || '',
+          bio: u.bio || localExisting?.bio || ''
+        };
+        if (Array.isArray(u.friends)) {
+          friendsList = u.friends;
+          localStorage.setItem('y40_friends', JSON.stringify(friendsList));
+        }
+        if (Array.isArray(u.routines) && u.routines.length > 0) {
+          routines = u.routines;
+          localStorage.setItem('y40_routines', JSON.stringify(routines));
+        }
+        if (localExisting?.dailyHistory) {
+          dailyHistory = { ...localExisting.dailyHistory, ...dailyHistory };
+          localStorage.setItem('y40_daily_history', JSON.stringify(dailyHistory));
+        }
+        if (Array.isArray(localExisting?.weeklyDiaries)) {
+          weeklyDiaries = localExisting.weeklyDiaries;
+          localStorage.setItem('y40_weekly_diaries', JSON.stringify(weeklyDiaries));
+        }
+        showToast(`🔓 '${nick}'님으로 로그인되었습니다!`);
+      } else if (localExisting) {
+        currentMember = {
+          id: localExisting.id || null,
+          dcUserId: remoteRes?.user?.id || localExisting.dcUserId || null,
+          nickname: nick,
+          password: pw,
+          avatar: localExisting.avatar || '🙋🏻‍♂️',
+          photoUrl: localExisting.photoUrl || '',
+          bio: localExisting.bio || ''
+        };
+        if (Array.isArray(localExisting.friends)) {
+          friendsList = localExisting.friends;
+          localStorage.setItem('y40_friends', JSON.stringify(friendsList));
+        }
+        if (localExisting.routines) {
+          routines = localExisting.routines;
+          localStorage.setItem('y40_routines', JSON.stringify(routines));
+        }
+        if (localExisting.dailyHistory) {
+          dailyHistory = localExisting.dailyHistory;
+          localStorage.setItem('y40_daily_history', JSON.stringify(dailyHistory));
+        }
+        if (Array.isArray(localExisting.weeklyDiaries)) {
+          weeklyDiaries = localExisting.weeklyDiaries;
+          localStorage.setItem('y40_weekly_diaries', JSON.stringify(weeklyDiaries));
+        }
+        showToast(`🔓 '${nick}'님으로 로그인되었습니다!`);
+      } else {
+        currentMember = {
+          id: null,
+          dcUserId: remoteRes?.user?.id || null,
+          nickname: nick,
+          password: pw,
+          avatar: currentMember.avatar || '🙋🏻‍♂️',
+          photoUrl: currentMember.photoUrl || '',
+          bio: currentMember.bio || ''
+        };
+        showToast(`🎉 '${nick}' 고정닉으로 입장 완료!`);
+      }
+
+      if (shouldRemember) {
+        saveAccountToLocalRegistry();
+      }
+      persistCurrentMember();
+
+      submitBtn.textContent = '닉네임 · 비밀번호로 입장하기 🚀';
+      submitBtn.disabled = false;
+
+      closeDcLoginModal();
+      updateHeaderUI();
+      renderTodayRoutines();
+      renderReportAndDiary();
+      initRealtimeDmChannel();
+      await initRealtimeGroup();
+    }
+
+    async function enterAsGuest() {
+      const randomNum = Math.floor(100 + Math.random() * 900);
+      currentMember = {
+        id: null,
+        dcUserId: null,
+        nickname: `유동_${randomNum}`,
+        password: '',
+        avatar: '🙋🏻‍♂️',
+        photoUrl: '',
+        bio: ''
+      };
+      persistCurrentMember();
+      closeDcLoginModal();
+      updateHeaderUI();
+      renderTodayRoutines();
+      initRealtimeDmChannel();
+      await initRealtimeGroup();
+      showToast(`👋 '${currentMember.nickname}'(유동)으로 입장했습니다.`);
+    }
+
+    function persistCurrentMember() {
+      if (currentMember.id) localStorage.setItem('y40_member_id', currentMember.id);
+      else localStorage.removeItem('y40_member_id');
+      if (currentMember.dcUserId) localStorage.setItem('y40_dc_user_id', currentMember.dcUserId);
+      else localStorage.removeItem('y40_dc_user_id');
+      localStorage.setItem('y40_nickname', currentMember.nickname);
+      localStorage.setItem('y40_password', currentMember.password || '');
+      localStorage.setItem('y40_avatar', currentMember.avatar || '🙋🏻‍♂️');
+      localStorage.setItem('y40_photo_url', currentMember.photoUrl || '');
+      localStorage.setItem('y40_bio', currentMember.bio || '');
+    }
+
+    function saveAccountToLocalRegistry() {
+      if (!currentMember.nickname || !currentMember.password) return;
+      const savedAccounts = JSON.parse(localStorage.getItem('y40_accounts') || '{}');
+      savedAccounts[currentMember.nickname] = {
+        id: currentMember.id,
+        dcUserId: currentMember.dcUserId,
+        password: currentMember.password,
+        avatar: currentMember.avatar,
+        photoUrl: currentMember.photoUrl,
+        bio: currentMember.bio,
+        friends: friendsList,
+        routines,
+        dailyHistory,
+        weeklyDiaries
+      };
+      localStorage.setItem('y40_accounts', JSON.stringify(savedAccounts));
+      if (sb && currentMember.password) {
+        syncDcUserToSupabase(currentMember.nickname, currentMember.password, {
+          avatar: currentMember.avatar,
+          photoUrl: currentMember.photoUrl,
+          bio: currentMember.bio,
+          friends: friendsList,
+          routines
+        });
+      }
+    }
+
+    // ================= B. 프로필 수정 모달 =================
+    function openProfileModal() {
+      tempProfileAvatar = currentMember.avatar || '🙋🏻‍♂️';
+      tempProfilePhotoUrl = currentMember.photoUrl || '';
+      tempProfilePhotoFile = null;
+
+      document.getElementById('profile-nick-input').value = currentMember.nickname || '';
+      document.getElementById('profile-pw-input').value = currentMember.password || '';
+      document.getElementById('profile-bio-input').value = currentMember.bio || '';
+      refreshProfilePreviewCircle();
+
+      document.getElementById('profile-edit-modal').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeProfileModal() {
+      document.getElementById('profile-edit-modal').classList.add('hidden');
+    }
+
+    function refreshProfilePreviewCircle() {
+      const circle = document.getElementById('profile-preview-circle');
+      const resetBtn = document.getElementById('reset-profile-photo-btn');
+      if (tempProfilePhotoUrl) {
+        circle.innerHTML = `<img src="${escapeHtml(tempProfilePhotoUrl)}" class="w-full h-full object-cover" />`;
+        resetBtn.classList.remove('hidden');
+      } else {
+        circle.innerHTML = escapeHtml(tempProfileAvatar);
+        resetBtn.classList.add('hidden');
+      }
+    }
+
+    function handleProfilePhotoSelect(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      tempProfilePhotoFile = file;
+      tempProfilePhotoUrl = URL.createObjectURL(file);
+      refreshProfilePreviewCircle();
+    }
+
+    function resetProfileToEmoji() {
+      tempProfilePhotoFile = null;
+      tempProfilePhotoUrl = '';
+      refreshProfilePreviewCircle();
+    }
+
+    function selectProfileEmoji(emoji) {
+      tempProfilePhotoFile = null;
+      tempProfilePhotoUrl = '';
+      tempProfileAvatar = emoji;
+      refreshProfilePreviewCircle();
+    }
+
+    function fileToCompressedDataUrl(file, maxSize = 240) {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            let w = img.width;
+            let h = img.height;
+            if (w > h && w > maxSize) { h = Math.round((h * maxSize) / w); w = maxSize; }
+            else if (h >= w && h > maxSize) { w = Math.round((w * maxSize) / h); h = maxSize; }
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            resolve(canvas.toDataURL('image/jpeg', 0.8));
+          };
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function saveProfileChanges() {
+      const newNick = document.getElementById('profile-nick-input').value.trim();
+      const newPw = document.getElementById('profile-pw-input').value.trim();
+      const newBio = document.getElementById('profile-bio-input').value.trim();
+
+      if (!newNick) { showToast('닉네임을 입력해 주세요!'); return; }
+
+      const btn = document.getElementById('save-profile-btn');
+      btn.textContent = '프로필 저장 중...';
+      btn.disabled = true;
+
+      let finalPhotoUrl = tempProfilePhotoUrl;
+      if (tempProfilePhotoFile) {
+        let uploaded = null;
+        if (sb) {
+          const fileExt = tempProfilePhotoFile.name.split('.').pop();
+          const fileName = `avatar_${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
+          const { error } = await sb.storage.from('routine-photos').upload(fileName, tempProfilePhotoFile);
+          if (!error) {
+            const { data } = sb.storage.from('routine-photos').getPublicUrl(fileName);
+            uploaded = data.publicUrl;
+          }
+        }
+        finalPhotoUrl = uploaded || await fileToCompressedDataUrl(tempProfilePhotoFile);
+      }
+
+      currentMember.nickname = newNick;
+      currentMember.password = newPw;
+      currentMember.avatar = tempProfileAvatar;
+      currentMember.photoUrl = finalPhotoUrl;
+      currentMember.bio = newBio;
+
+      persistCurrentMember();
+      saveAccountToLocalRegistry();
+
+      btn.textContent = '프로필 저장하기 ✅';
+      btn.disabled = false;
+
+      closeProfileModal();
+      updateHeaderUI();
+      initRealtimeDmChannel();
+      await syncMyMemberRecord();
+      await fetchGroupMembers();
+      showToast('✅ 프로필이 저장되었습니다!');
+    }
+
+    function switchAccountFromProfile() {
+      closeProfileModal();
+      openDcLoginModal(true);
+    }
+
+    // ================= C & D & E. 상대방 프로필 상세 보기, 친구 목록 & 실시간 1:1 메시지 =================
+    function isFriend(nickname) {
+      return friendsList.some(f => f.nickname === nickname);
+    }
+
+    function saveFriendsList() {
+      localStorage.setItem('y40_friends', JSON.stringify(friendsList));
+      updateHeaderUI();
+      saveAccountToLocalRegistry();
+    }
+
+    function openPeerProfileModal(memberIdOrNick) {
+      const target = membersList.find(m => String(m.id) === String(memberIdOrNick) || m.nickname === memberIdOrNick);
+      if (!target) return;
+
+      const isMe = target.id === currentMember.id || target.nickname === currentMember.nickname;
+      if (isMe) {
+        openProfileModal();
+        return;
+      }
+
+      selectedPeerMember = target;
+      const parsed = parseAvatarDisplay(target.avatar);
+      const avatarBox = document.getElementById('peer-modal-avatar-box');
+      const zoomHint = document.getElementById('peer-modal-zoom-hint');
+
+      if (parsed.isImage) {
+        avatarBox.innerHTML = `<img src="${escapeHtml(parsed.src)}" alt="${escapeHtml(target.nickname)}" class="w-full h-full object-cover" />`;
+        zoomHint.classList.remove('hidden');
+      } else {
+        avatarBox.textContent = parsed.emoji;
+        zoomHint.classList.add('hidden');
+      }
+
+      document.getElementById('peer-modal-nickname').textContent = target.nickname;
+      const cleanBio = (target.status_text || '').replace(/^💬\s*/, '');
+      document.getElementById('peer-modal-bio').textContent = cleanBio || '함께 루틴 실천 중! 🔥';
+
+      const pct = Number(target.progress) || 0;
+      document.getElementById('peer-modal-progress-text').textContent = `${pct}%`;
+      document.getElementById('peer-modal-progress-bar').style.width = `${pct}%`;
+
+      const recentFeed = liveFeeds.find(f => f.author === target.nickname && !f.isPrivate);
+      document.getElementById('peer-modal-recent-feed').textContent = recentFeed
+        ? `최근 활동: ${recentFeed.text} (${recentFeed.time})`
+        : '오늘 공유된 완료 기록이 아직 없습니다.';
+
+      refreshPeerFriendButton();
+      document.getElementById('peer-profile-modal').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closePeerProfileModal() {
+      selectedPeerMember = null;
+      document.getElementById('peer-profile-modal').classList.add('hidden');
+    }
+
+    function refreshPeerFriendButton() {
+      if (!selectedPeerMember) return;
+      const btn = document.getElementById('peer-friend-toggle-btn');
+      if (isFriend(selectedPeerMember.nickname)) {
+        btn.textContent = '✅ 친구 (해제)';
+        btn.className = 'py-2.5 bg-slate-200 hover:bg-rose-100 text-slate-700 hover:text-rose-700 font-extrabold text-[11px] rounded-xl transition';
+      } else {
+        btn.textContent = '⭐ 친구 추가';
+        btn.className = 'py-2.5 bg-amber-400 hover:bg-amber-300 text-slate-900 font-extrabold text-[11px] rounded-xl shadow-2xs transition';
+      }
+    }
+
+    function toggleFriendFromModal() {
+      if (!selectedPeerMember) return;
+      const nick = selectedPeerMember.nickname;
+      if (isFriend(nick)) {
+        friendsList = friendsList.filter(f => f.nickname !== nick);
+        showToast(`🗑️ '${nick}'님을 친구 목록에서 해제했습니다.`);
+      } else {
+        friendsList.push({
+          nickname: nick,
+          avatar: selectedPeerMember.avatar || '🙋🏻‍♂️',
+          bio: selectedPeerMember.status_text || '',
+          addedAt: new Date().toISOString()
+        });
+        showToast(`⭐ '${nick}'님을 내 친구 목록에 추가했습니다!`);
+      }
+      saveFriendsList();
+      refreshPeerFriendButton();
+      renderGroupMembers();
+    }
+
+    function openDmFromPeerModal() {
+      if (!selectedPeerMember) return;
+      const nick = selectedPeerMember.nickname;
+      if (!isFriend(nick)) {
+        friendsList.push({
+          nickname: nick,
+          avatar: selectedPeerMember.avatar || '🙋🏻‍♂️',
+          bio: selectedPeerMember.status_text || '',
+          addedAt: new Date().toISOString()
+        });
+        saveFriendsList();
+        renderGroupMembers();
+      }
+      closePeerProfileModal();
+      openFriendsListModal();
+      openDmChatWithFriend(nick);
+    }
+
+    async function sendCheerFromPeerModal() {
+      if (!selectedPeerMember) return;
+      const peer = selectedPeerMember;
+      closePeerProfileModal();
+      const type = (Number(peer.progress) || 0) >= 67 ? 'cheer' : 'poke';
+      await triggerPeerAction(peer.id, peer.nickname, type);
+    }
+
+    function openFullImageViewer() {
+      if (!selectedPeerMember) return;
+      const parsed = parseAvatarDisplay(selectedPeerMember.avatar);
+      if (!parsed.isImage) return;
+      document.getElementById('full-image-target').src = parsed.src;
+      document.getElementById('full-image-viewer').classList.remove('hidden');
+    }
+
+    function closeFullImageViewer() {
+      document.getElementById('full-image-viewer').classList.add('hidden');
+    }
+
+    function openFriendsListModal() {
+      document.getElementById('unread-dm-badge').classList.add('hidden');
+      document.getElementById('friends-modal-code').textContent = currentGroup.code;
+      backToFriendsDirectory();
+      document.getElementById('friends-list-modal').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeFriendsListModal() {
       activeDmPartner = null;
-      document.getElementById('dm-chat-view').classList.add('hidden');
-      document.getElementById('friends-list-view').classList.remove('hidden');
-      renderFriendsList();
+      document.getElementById('friends-list-modal').classList.add('hidden');
     }
 
-    function renderDmMessages() {
+    function backToFriendsDirectory() {
+      activeDmPartner = null;
+      document.getElementById('friends-dm-view').classList.add('hidden');
+      document.getElementById('friends-directory-view').classList.remove('hidden');
+      renderFriendsListModal();
+    }
+
+    function renderFriendsListModal() {
+      const container = document.getElementById('friends-list-container');
+      document.getElementById('friends-modal-count').textContent = `${friendsList.length}명`;
+
+      if (friendsList.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-8 text-xs text-slate-400 space-y-1">
+            <p class="font-bold text-slate-500">아직 등록된 친구가 없습니다</p>
+            <p>팀원 프로필을 누르거나 위 입력창에 닉네임을 입력해 친구를 추가하고 1:1 메시지를 보내보세요!</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = friendsList.map(f => {
+        const activeMember = membersList.find(m => m.nickname === f.nickname);
+        const liveAvatar = activeMember ? activeMember.avatar : f.avatar;
+        const msgs = dmMessages[f.nickname] || [];
+        const lastMsgText = msgs.length > 0
+          ? `💬 ${msgs[msgs.length - 1].text}`
+          : (activeMember ? `🟢 방 참여중 · ${activeMember.progress}%` : (f.bio || '1:1 메시지 가능'));
+        return `
+          <div class="p-2.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2.5 min-w-0 flex-1">
+              ${renderAvatarBadgeHtml(liveAvatar, 'w-9 h-9 text-base')}
+              <div class="min-w-0">
+                <p class="text-xs font-extrabold text-slate-900 truncate">${escapeHtml(f.nickname)}</p>
+                <p class="text-[10px] text-slate-500 truncate">${escapeHtml(lastMsgText)}</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-1 shrink-0">
+              <button onclick="openDmChatWithFriend('${escapeHtml(f.nickname)}')" class="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-extrabold rounded-lg transition">💬 메시지</button>
+              <button onclick="removeFriendByNickname('${escapeHtml(f.nickname)}')" class="p-1.5 text-slate-400 hover:text-rose-500 rounded-lg" title="친구 삭제">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+      lucide.createIcons();
+    }
+
+    function openDmChatWithFriend(partnerNick) {
+      activeDmPartner = partnerNick;
+      document.getElementById('dm-chat-partner-name').textContent = partnerNick;
+      document.getElementById('friends-directory-view').classList.add('hidden');
+      document.getElementById('friends-dm-view').classList.remove('hidden');
+      renderDmChatMessages();
+      lucide.createIcons();
+    }
+
+    function renderDmChatMessages() {
       if (!activeDmPartner) return;
-      const box = document.getElementById('dm-messages-box');
+      const box = document.getElementById('dm-chat-messages');
       const msgs = dmMessages[activeDmPartner] || [];
-      const myName = currentUser ? currentUser.nickname : '게스트';
+      const myNick = currentMember.nickname || '게스트';
 
       if (msgs.length === 0) {
-        box.innerHTML = `<p class="text-center text-[11px] text-slate-500 py-10">첫 응원 메시지를 보내보세요!</p>`;
+        box.innerHTML = `<p class="text-center text-[11px] text-slate-400 py-12">첫 응원 메시지를 보내보세요! 👋</p>`;
         return;
       }
 
       box.innerHTML = msgs.map(m => {
-        const isMe = m.sender === myName;
+        const isMe = m.sender === myNick;
         return `
           <div class="flex flex-col ${isMe ? 'items-end' : 'items-start'}">
-            <div class="max-w-[80%] px-3 py-2 rounded-2xl text-xs ${isMe ? 'bg-indigo-600 text-white rounded-br-sm' : 'bg-slate-800 text-slate-100 rounded-bl-sm'}">
+            <div class="max-w-[80%] px-3 py-2 rounded-2xl text-xs leading-snug ${isMe ? 'bg-indigo-600 text-white rounded-br-xs' : 'bg-white border border-slate-200 text-slate-800 rounded-bl-xs'}">
               ${escapeHtml(m.text)}
             </div>
-            <span class="text-[9px] text-slate-500 mt-0.5 px-1">${m.time}</span>
+            <span class="text-[9px] text-slate-400 mt-0.5 px-1">${escapeHtml(m.time)}</span>
           </div>
         `;
       }).join('');
@@ -1263,105 +1577,988 @@
     }
 
     function initRealtimeDmChannel() {
-      if (!supabaseClient || !currentUser) return;
-      if (dmChannel) supabaseClient.removeChannel(dmChannel);
+      if (!sb || !currentMember.nickname || currentMember.nickname === '게스트') return;
+      if (dmChannel) sb.removeChannel(dmChannel);
 
-      dmChannel = supabaseClient.channel(`dm_inbox_${currentUser.nickname}`);
+      dmChannel = sb.channel(`y40_dm_${currentMember.nickname}`);
       dmChannel
-        .on('broadcast', { event: 'new_dm' }, ({ payload }) => {
-          if (!payload || payload.to !== currentUser.nickname) return;
+        .on('broadcast', { event: 'direct_msg' }, ({ payload }) => {
+          if (!payload || payload.to !== currentMember.nickname) return;
           const sender = payload.from;
-          if (!friends.includes(sender)) friends.push(sender);
+          if (!isFriend(sender)) {
+            friendsList.push({
+              nickname: sender,
+              avatar: payload.avatar || '🙋🏻‍♂️',
+              bio: '',
+              addedAt: new Date().toISOString()
+            });
+            saveFriendsList();
+          }
           if (!dmMessages[sender]) dmMessages[sender] = [];
           dmMessages[sender].push({
             sender,
             text: payload.text,
             time: payload.time
           });
-          persistAllData();
+          localStorage.setItem('y40_dm_messages', JSON.stringify(dmMessages));
 
           if (activeDmPartner === sender) {
-            renderDmMessages();
+            renderDmChatMessages();
           } else {
-            document.getElementById('unread-dm-dot').classList.remove('hidden');
-            showToast(`💬 ${sender}: ${payload.text}`, 'info');
+            document.getElementById('unread-dm-badge').classList.remove('hidden');
+            showToast(`💬 ${sender}: ${payload.text}`);
           }
         })
         .subscribe();
     }
 
-    async function sendDirectMessage(e) {
-      e.preventDefault();
+    async function sendDirectMessage(event) {
+      event.preventDefault();
       if (!activeDmPartner) return;
-      const input = document.getElementById('dm-input');
+      const input = document.getElementById('dm-message-input');
       const text = input.value.trim();
       if (!text) return;
 
-      const myName = currentUser ? currentUser.nickname : '게스트';
+      const myNick = currentMember.nickname || '게스트';
       const timeStr = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
 
       if (!dmMessages[activeDmPartner]) dmMessages[activeDmPartner] = [];
       dmMessages[activeDmPartner].push({
-        sender: myName,
+        sender: myNick,
         text,
         time: timeStr
       });
+      localStorage.setItem('y40_dm_messages', JSON.stringify(dmMessages));
       input.value = '';
-      persistAllData();
-      renderDmMessages();
+      renderDmChatMessages();
 
-      // Supabase 실시간 채널로 상대방에게 즉시 전송
-      if (supabaseClient) {
-        const targetChannel = supabaseClient.channel(`dm_inbox_${activeDmPartner}`);
-        targetChannel.subscribe(async (status) => {
+      if (sb) {
+        const targetCh = sb.channel(`y40_dm_${activeDmPartner}`);
+        targetCh.subscribe(async (status) => {
           if (status === 'SUBSCRIBED') {
-            await targetChannel.send({
+            await targetCh.send({
               type: 'broadcast',
-              event: 'new_dm',
+              event: 'direct_msg',
               payload: {
-                from: myName,
+                from: myNick,
                 to: activeDmPartner,
+                avatar: getEncodedAvatarValue(),
                 text,
                 time: timeStr
               }
             });
-            supabaseClient.removeChannel(targetChannel);
+            sb.removeChannel(targetCh);
           }
         });
       }
     }
 
-    // =========================================================================
-    // 10. 탭 전환 및 유틸리티
-    // =========================================================================
-    function switchTab(tabName) {
-      ['routine', 'room', 'report'].forEach(t => {
-        document.getElementById(`tab-${t}`).classList.toggle('hidden', t !== tabName);
-        const navBtn = document.getElementById(`nav-${t}`);
-        if (t === tabName) {
-          navBtn.classList.remove('text-slate-400', 'font-medium');
-          navBtn.classList.add('text-indigo-400', 'font-bold');
-        } else {
-          navBtn.classList.remove('text-indigo-400', 'font-bold');
-          navBtn.classList.add('text-slate-400', 'font-medium');
+    async function addFriendByNicknameInput() {
+      const input = document.getElementById('direct-add-friend-input');
+      const nick = input.value.trim();
+      if (!nick) { showToast('추가할 친구 닉네임을 입력해 주세요!'); return; }
+      if (nick === currentMember.nickname) { showToast('본인은 친구로 추가할 수 없습니다.'); return; }
+      if (isFriend(nick)) { showToast('이미 친구 목록에 등록된 사용자입니다.'); return; }
+
+      let foundAvatar = '🙋🏻‍♂️';
+      let foundBio = '';
+
+      const inRoom = membersList.find(m => m.nickname === nick);
+      if (inRoom) {
+        foundAvatar = inRoom.avatar || '🙋🏻‍♂️';
+        foundBio = inRoom.status_text || '';
+      } else if (sb) {
+        const { data: dcUser } = await sb.from('dc_users').select('*').eq('nickname', nick).maybeSingle();
+        if (dcUser) {
+          foundAvatar = dcUser.photo_url ? `IMG:${dcUser.photo_url}` : (dcUser.avatar || '🙋🏻‍♂️');
+          foundBio = dcUser.bio || '';
         }
+      }
+
+      friendsList.push({
+        nickname: nick,
+        avatar: foundAvatar,
+        bio: foundBio,
+        addedAt: new Date().toISOString()
+      });
+      input.value = '';
+      saveFriendsList();
+      renderFriendsListModal();
+      renderGroupMembers();
+      showToast(`⭐ '${nick}'님이 친구 목록에 추가되었습니다!`);
+    }
+
+    function removeFriendByNickname(nick) {
+      friendsList = friendsList.filter(f => f.nickname !== nick);
+      saveFriendsList();
+      renderFriendsListModal();
+      renderGroupMembers();
+      showToast(`🗑️ '${nick}'님을 친구 목록에서 삭제했습니다.`);
+    }
+
+    // ================= 0. 나만의 루틴 직접 추가 / 수정 / 삭제 =================
+    function openRoutineFormModal(editId = null) {
+      if (!editId && routines.length >= 5) {
+        showToast('핵심 루틴은 최대 5개까지 등록할 수 있습니다.');
+        return;
+      }
+      editingRoutineId = editId;
+      const badge = document.getElementById('routine-form-badge');
+      const titleInput = document.getElementById('routine-title-input');
+      const timeInput = document.getElementById('routine-time-input');
+      const emojiInput = document.getElementById('routine-emoji-input');
+
+      if (editId) {
+        const target = routines.find(r => r.id === editId);
+        if (!target) return;
+        badge.textContent = '✏️ 내 루틴 수정하기';
+        const firstSpace = target.title.indexOf(' ');
+        const possibleEmoji = firstSpace > 0 ? target.title.slice(0, firstSpace) : '';
+        const hasOption = Array.from(emojiInput.options).some(opt => opt.value === possibleEmoji);
+        if (hasOption) {
+          emojiInput.value = possibleEmoji;
+          titleInput.value = target.title.slice(firstSpace + 1);
+        } else {
+          emojiInput.value = '📚';
+          titleInput.value = target.title;
+        }
+        timeInput.value = target.time || '09:00';
+      } else {
+        badge.textContent = '✨ 나만의 루틴 만들기';
+        emojiInput.value = '📚';
+        titleInput.value = '';
+        timeInput.value = '09:00';
+      }
+      document.getElementById('routine-form-modal').classList.remove('hidden');
+      setTimeout(() => titleInput.focus(), 50);
+    }
+
+    function closeRoutineFormModal() {
+      editingRoutineId = null;
+      document.getElementById('routine-form-modal').classList.add('hidden');
+    }
+
+    function saveCustomRoutine() {
+      const emoji = document.getElementById('routine-emoji-input').value;
+      const rawTitle = document.getElementById('routine-title-input').value.trim();
+      const time = document.getElementById('routine-time-input').value || '09:00';
+
+      if (!rawTitle) {
+        showToast('루틴 이름을 입력해 주세요!');
+        return;
+      }
+
+      const fullTitle = `${emoji} ${rawTitle}`;
+
+      if (editingRoutineId) {
+        const idx = routines.findIndex(r => r.id === editingRoutineId);
+        if (idx !== -1) {
+          routines[idx] = { ...routines[idx], title: fullTitle, time, type: 'check' };
+        }
+        showToast('✏️ 루틴이 수정되었습니다.');
+      } else {
+        routines.push({
+          id: Date.now(),
+          title: fullTitle,
+          time,
+          type: 'check',
+          completed: false,
+          restProtected: false,
+          streak: 1
+        });
+        showToast(`✅ '${rawTitle}' 루틴이 추가되었습니다!`);
+      }
+
+      localStorage.setItem('y40_routines', JSON.stringify(routines));
+      saveAccountToLocalRegistry();
+      closeRoutineFormModal();
+      renderTodayRoutines();
+    }
+
+    function deleteCustomRoutine(id) {
+      if (routines.length <= 1) {
+        showToast('최소 1개 이상의 루틴은 유지해야 합니다.');
+        return;
+      }
+      routines = routines.filter(r => r.id !== id);
+      localStorage.setItem('y40_routines', JSON.stringify(routines));
+      saveAccountToLocalRegistry();
+      renderTodayRoutines();
+      showToast('🗑️ 루틴이 삭제되었습니다.');
+    }
+
+    // ================= 1. 실시간 소그룹 초기화 및 구독 (숫자 6자리 전용 코드) =================
+    async function initRealtimeGroup() {
+      updateHeaderUI();
+
+      if (!sb) {
+        document.getElementById('db-status-badge').textContent = '● LOCAL';
+        document.getElementById('db-status-badge').className = 'text-[10px] font-extrabold text-amber-600';
+        const bioPrefix = currentMember.bio ? `"${currentMember.bio}" · ` : '';
+        membersList = [{
+          id: 'local-me',
+          nickname: currentMember.nickname,
+          avatar: getEncodedAvatarValue(),
+          progress: calcMyProgress().pct,
+          status_text: `${bioPrefix}${calcMyProgress().done}/${calcMyProgress().total} 완료`
+        }];
+        renderGroupMembers();
+        return;
+      }
+
+      let { data: groupData } = await sb.from('groups').select('*').eq('invite_code', currentGroup.code).maybeSingle();
+      if (!groupData) {
+        const { data: created } = await sb.from('groups').insert([{ name: currentGroup.name, invite_code: currentGroup.code }]).select().single();
+        groupData = created;
+      }
+      if (groupData) {
+        currentGroup.id = groupData.id;
+        currentGroup.name = groupData.name;
+        currentGroup.code = groupData.invite_code;
+        localStorage.setItem('y40_group_id', currentGroup.id);
+        localStorage.setItem('y40_group_name', currentGroup.name);
+        localStorage.setItem('y40_invite_code', currentGroup.code);
+        updateHeaderUI();
+      }
+
+      await syncMyMemberRecord();
+      await fetchGroupMembers();
+      await fetchGroupFeeds();
+
+      sb.channel(`room-${currentGroup.id}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'group_members', filter: `group_id=eq.${currentGroup.id}` }, payload => {
+          fetchGroupMembers();
+          if (payload.eventType === 'INSERT' && payload.new.id !== currentMember.id) {
+            showToast(`🎉 새로운 멤버 '${payload.new.nickname}'님이 초대코드로 입장했습니다!`);
+          }
+        })
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'feeds', filter: `group_id=eq.${currentGroup.id}` }, payload => {
+          fetchGroupFeeds();
+          if (payload.new.author_name !== currentMember.nickname) {
+            showToast(`🔔 ${payload.new.author_name}: ${payload.new.content}`);
+          }
+        })
+        .subscribe();
+    }
+
+    async function syncMyMemberRecord() {
+      const { pct, done, total } = calcMyProgress();
+      const bioPrefix = currentMember.bio ? `💬 ${currentMember.bio} · ` : '';
+      const statusText = `${bioPrefix}${done}/${total} 루틴 완료`;
+      const encodedAvatar = getEncodedAvatarValue();
+
+      if (!sb || !currentGroup.id) {
+        membersList = [{
+          id: 'local-me',
+          nickname: currentMember.nickname,
+          avatar: encodedAvatar,
+          progress: pct,
+          status_text: statusText
+        }];
+        renderGroupMembers();
+        return;
+      }
+
+      if (currentMember.id) {
+        const { data } = await sb.from('group_members').update({
+          group_id: currentGroup.id,
+          nickname: currentMember.nickname,
+          avatar: encodedAvatar,
+          progress: pct,
+          completed_count: done,
+          total_count: total,
+          status_text: statusText,
+          updated_at: new Date().toISOString()
+        }).eq('id', currentMember.id).select().maybeSingle();
+
+        if (data) return;
+      }
+
+      const { data: inserted } = await sb.from('group_members').insert([{
+        group_id: currentGroup.id,
+        nickname: currentMember.nickname,
+        avatar: encodedAvatar,
+        progress: pct,
+        completed_count: done,
+        total_count: total,
+        status_text: statusText
+      }]).select().single();
+
+      if (inserted) {
+        currentMember.id = inserted.id;
+        localStorage.setItem('y40_member_id', inserted.id);
+        saveAccountToLocalRegistry();
+      }
+    }
+
+    async function fetchGroupMembers() {
+      if (!sb || !currentGroup.id) return;
+      const { data } = await sb.from('group_members').select('*').eq('group_id', currentGroup.id).order('created_at', { ascending: true });
+      if (data) {
+        membersList = data;
+        renderGroupMembers();
+      }
+    }
+
+    async function fetchGroupFeeds() {
+      if (!sb || !currentGroup.id) return;
+      const { data } = await sb.from('feeds').select('*').eq('group_id', currentGroup.id).order('created_at', { ascending: false }).limit(25);
+      if (data) {
+        liveFeeds = data.map(f => ({
+          id: f.id,
+          author: f.author_name,
+          text: f.content,
+          photoUrl: f.photo_url,
+          time: new Date(f.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
+          isPrivate: f.is_private
+        }));
+        renderLiveFeeds();
+      }
+    }
+
+    // ================= 2. 숫자 6자리 초대코드 생성 & 방 이동 =================
+    function openInviteJoinModal() {
+      document.getElementById('modal-current-code').textContent = currentGroup.code;
+      document.getElementById('join-code-input').value = '';
+      document.getElementById('invite-join-modal').classList.remove('hidden');
+    }
+
+    function closeInviteJoinModal() {
+      document.getElementById('invite-join-modal').classList.add('hidden');
+    }
+
+    async function createNewGroupRoom() {
+      const randomCode = generateNumeric6Code();
+      currentGroup.code = randomCode;
+      currentGroup.name = `소그룹 (${randomCode})`;
+      currentMember.id = null;
+      localStorage.removeItem('y40_member_id');
+      localStorage.setItem('y40_invite_code', randomCode);
+      localStorage.setItem('y40_group_name', currentGroup.name);
+
+      if (sb) {
+        const { data } = await sb.from('groups').insert([{ name: currentGroup.name, invite_code: randomCode }]).select().single();
+        if (data) currentGroup.id = data.id;
+        await initRealtimeGroup();
+      } else {
+        updateHeaderUI();
+      }
+      document.getElementById('modal-current-code').textContent = randomCode;
+      showToast(`✨ 새 소그룹 방과 숫자 6자리 코드(${randomCode})가 생성되었습니다!`);
+    }
+
+    async function joinGroupWithCode(overrideCode = null) {
+      const rawInput = overrideCode ?? document.getElementById('join-code-input').value;
+      const code = normalize6DigitCode(rawInput);
+      if (!code) {
+        showToast('숫자 6자리 초대코드를 정확히 입력해 주세요!');
+        return;
+      }
+
+      currentMember.id = null;
+      localStorage.removeItem('y40_member_id');
+      currentGroup.code = code;
+      localStorage.setItem('y40_invite_code', code);
+
+      closeInviteJoinModal();
+
+      if (!sb) {
+        currentGroup.name = `소그룹 (${code})`;
+        updateHeaderUI();
+        showToast(`⚠️ 로컬 모드에서 방 코드(${code})로 전환되었습니다.`);
+        return;
+      }
+
+      let { data: targetGroup } = await sb.from('groups').select('*').eq('invite_code', code).maybeSingle();
+      if (!targetGroup) {
+        const { data: created } = await sb.from('groups').insert([{ name: `소그룹 (${code})`, invite_code: code }]).select().single();
+        targetGroup = created;
+      }
+
+      if (targetGroup) {
+        currentGroup.id = targetGroup.id;
+        currentGroup.name = targetGroup.name;
+        localStorage.setItem('y40_group_id', targetGroup.id);
+        localStorage.setItem('y40_group_name', targetGroup.name);
+      }
+
+      await initRealtimeGroup();
+      await pushFeedToBackend({
+        author: currentMember.nickname,
+        text: `초대코드(${code})로 소그룹에 합류했습니다! 👋`,
+        isPrivate: false
+      });
+      showToast(`🎉 '${currentMember.nickname}'님으로 [${currentGroup.name}]에 입장 완료!`);
+    }
+
+    function copyInviteInfo() {
+      const baseUrl = window.location.origin + window.location.pathname;
+      const inviteUrl = `${baseUrl}?code=${currentGroup.code}`;
+      const shareText = `[영포티루틴 초대]
+우리 소그룹 루틴방에 함께해요!
+링크: ${inviteUrl}
+초대코드: ${currentGroup.code}`;
+      navigator.clipboard?.writeText(shareText);
+      showToast(`🔗 초대 링크와 숫자 코드(${currentGroup.code})가 복사되었습니다!`);
+    }
+
+    function updateHeaderUI() {
+      document.getElementById('header-group-name').textContent = currentGroup.name;
+      document.getElementById('header-invite-code').textContent = `초대코드: ${currentGroup.code}`;
+      document.getElementById('header-nickname-text').textContent = currentMember.nickname || '게스트';
+      document.getElementById('header-friend-count').textContent = String(friendsList.length);
+
+      const avatarBox = document.getElementById('header-avatar-box');
+      if (currentMember.photoUrl) {
+        avatarBox.innerHTML = `<img src="${escapeHtml(currentMember.photoUrl)}" class="w-full h-full object-cover" />`;
+      } else {
+        avatarBox.textContent = currentMember.avatar || '🙋🏻‍♂️';
+      }
+    }
+
+    // ================= 3. 루틴 & 멤버 렌더링 + 실제 달성률 히스토리 누적 =================
+    function calcMyProgress() {
+      const total = routines.length;
+      const done = routines.filter(r => r.completed).length;
+      const pct = total === 0 ? 0 : Math.round((done / total) * 100);
+      return { pct, done, total };
+    }
+
+    function recordTodayProgressSnapshot() {
+      const today = getTodayStr();
+      const { pct, done, total } = calcMyProgress();
+      if (total > 0) {
+        dailyHistory[today] = { done, total, pct };
+      } else {
+        delete dailyHistory[today];
+      }
+      localStorage.setItem('y40_daily_history', JSON.stringify(dailyHistory));
+      saveAccountToLocalRegistry();
+    }
+
+    function renderTodayRoutines() {
+      const container = document.getElementById('my-routines-list');
+      container.innerHTML = '';
+      document.getElementById('coupon-count-text').textContent = restCoupons;
+      document.getElementById('routine-count-pill').textContent = `${routines.length}/5개`;
+
+      routines.forEach(r => {
+        const card = document.createElement('div');
+        card.className = `p-3.5 rounded-2xl border transition flex items-center justify-between gap-2 ${
+          r.completed ? 'bg-indigo-50/40 border-indigo-200/80' : 'bg-white border-slate-100 shadow-xs'
+        }`;
+
+        let actionHtml = '';
+        if (r.restProtected) {
+          actionHtml = `<span class="text-[11px] font-extrabold bg-amber-100 text-amber-800 px-2.5 py-1.5 rounded-xl">🎫 쉬는 날 보호</span>`;
+        } else if (r.completed) {
+          actionHtml = `<button onclick="toggleCheckRoutine(${r.id})" class="flex items-center gap-1 bg-indigo-600 text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-2xs active:scale-95 transition"><i data-lucide="check" class="w-3.5 h-3.5"></i> 완료</button>`;
+        } else {
+          actionHtml = `<button onclick="toggleCheckRoutine(${r.id})" class="flex items-center gap-1 bg-slate-100 hover:bg-indigo-50 text-slate-700 border border-slate-200 text-xs font-bold px-3 py-1.5 rounded-xl active:scale-95 transition"><span>☑️</span> 체크</button>`;
+        }
+
+        card.innerHTML = `
+          <div class="flex items-center gap-2.5 min-w-0 flex-1">
+            <button onclick="toggleCheckRoutine(${r.id})" class="w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition ${r.completed ? 'bg-indigo-600 text-white' : 'border-2 border-slate-300'}">
+              ${r.completed ? '<i data-lucide="check" class="w-3.5 h-3.5"></i>' : ''}
+            </button>
+            <div class="min-w-0 flex-1">
+              <p class="text-xs font-extrabold truncate ${r.completed ? 'line-through text-slate-400' : 'text-slate-800'}">${escapeHtml(r.title)}</p>
+              <div class="flex items-center gap-2 mt-1 text-[11px] text-slate-400">
+                <span>⏰ ${escapeHtml(r.time)}</span>
+                <span>·</span>
+                <span class="text-indigo-600 font-bold">🔥 ${r.streak}일</span>
+                <button onclick="openRoutineFormModal(${r.id})" class="text-slate-400 hover:text-indigo-600 ml-1" title="수정"><i data-lucide="pencil" class="w-3 h-3"></i></button>
+                <button onclick="deleteCustomRoutine(${r.id})" class="text-slate-400 hover:text-rose-500" title="삭제"><i data-lucide="trash-2" class="w-3 h-3"></i></button>
+              </div>
+            </div>
+          </div>
+          <div class="shrink-0">${actionHtml}</div>
+        `;
+        container.appendChild(card);
+      });
+
+      const { pct, done, total } = calcMyProgress();
+      document.getElementById('my-progress-label').textContent = `${pct}% (${done}/${total} 완료)`;
+      document.getElementById('my-progress-bar').style.width = `${pct}%`;
+
+      recordTodayProgressSnapshot();
+      renderReportAndDiary();
+      syncMyMemberRecord();
+      lucide.createIcons();
+    }
+
+    function renderGroupMembers() {
+      const container = document.getElementById('group-members-list');
+      document.getElementById('group-member-count-badge').textContent = `${membersList.length}명 실시간 참여중`;
+      container.innerHTML = '';
+
+      const avgPct = membersList.length === 0
+        ? 0
+        : Math.round(membersList.reduce((acc, m) => acc + (Number(m.progress) || 0), 0) / membersList.length);
+      document.getElementById('group-avg-label').textContent = `${avgPct}%`;
+      document.getElementById('group-avg-bar').style.width = `${avgPct}%`;
+
+      membersList.forEach(m => {
+        const isMe = m.id === currentMember.id || m.nickname === currentMember.nickname;
+        const isHigh = m.progress >= 67;
+        const friendMark = !isMe && isFriend(m.nickname) ? '<span class="text-[10px] font-extrabold text-amber-600">⭐친구</span>' : '';
+        const card = document.createElement('div');
+        card.id = `peer-card-${m.id}`;
+        card.className = `p-3 rounded-xl border space-y-2 transition ${isMe ? 'bg-indigo-50/70 border-indigo-200/80' : 'bg-slate-50 border-slate-100'}`;
+        card.innerHTML = `
+          <div class="flex items-center justify-between gap-2">
+            <div onclick="openPeerProfileModal('${escapeHtml(m.id)}')" class="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer group">
+              ${renderAvatarBadgeHtml(m.avatar, 'w-8 h-8 text-base')}
+              <div class="min-w-0">
+                <div class="flex items-center gap-1.5">
+                  <span class="text-xs font-extrabold text-slate-900 group-hover:text-indigo-600 truncate transition">${escapeHtml(m.nickname)} ${isMe ? '(나)' : ''}</span>
+                  ${friendMark}
+                  <span class="text-[10px] font-bold px-1.5 py-0.2 rounded shrink-0 ${isMe ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-700'}">${m.progress}%</span>
+                </div>
+                <p class="text-[11px] text-slate-500 truncate">${escapeHtml(m.status_text || '')}</p>
+              </div>
+            </div>
+            <div class="shrink-0">
+              ${isMe
+                ? `<button onclick="openProfileModal()" class="text-[11px] font-bold text-indigo-700 hover:bg-indigo-50 bg-white px-2.5 py-1 rounded-lg border border-indigo-100 transition">프로필 수정</button>`
+                : isHigh
+                  ? `<button onclick="triggerPeerAction('${m.id}', '${escapeHtml(m.nickname)}', 'cheer')" class="px-2.5 py-1.5 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 text-[11px] font-extrabold rounded-xl transition">👏 응원</button>`
+                  : `<button onclick="triggerPeerAction('${m.id}', '${escapeHtml(m.nickname)}', 'poke')" class="px-2.5 py-1.5 bg-violet-100 hover:bg-violet-200 text-violet-700 text-[11px] font-extrabold rounded-xl transition">👉 찌르기</button>`
+              }
+            </div>
+          </div>
+          <div class="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+            <div class="h-full ${m.progress === 100 ? 'bg-indigo-600' : 'bg-violet-500'} rounded-full transition-all duration-500" style="width: ${m.progress}%;"></div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function renderLiveFeeds() {
+      const list = document.getElementById('live-feed-list');
+      list.innerHTML = '';
+      liveFeeds.forEach(f => {
+        const item = document.createElement('div');
+        item.className = `p-2.5 rounded-xl text-xs space-y-1.5 ${f.isPrivate ? 'bg-violet-50/80 border border-violet-100' : 'bg-slate-50'}`;
+        item.innerHTML = `
+          <div class="flex items-start justify-between gap-2">
+            <div class="text-slate-700 leading-snug">
+              ${f.isPrivate ? '<span class="inline-block text-[10px] font-extrabold bg-violet-600 text-white px-1.5 py-0.2 rounded mr-1">🔒 나만 보기</span>' : ''}
+              <strong onclick="openPeerProfileModal('${escapeHtml(f.author)}')" class="font-extrabold text-slate-900 hover:text-indigo-600 cursor-pointer">${escapeHtml(f.author)}</strong> · ${escapeHtml(f.text)}
+            </div>
+            <span class="text-[10px] text-slate-400 shrink-0">${escapeHtml(f.time)}</span>
+          </div>
+          ${f.photoUrl ? `<img src="${escapeHtml(f.photoUrl)}" class="w-full h-36 object-cover rounded-lg border border-slate-200" />` : ''}
+        `;
+        list.appendChild(item);
+      });
+    }
+
+    async function pushFeedToBackend(feedObj) {
+      if (sb && currentGroup.id) {
+        await sb.from('feeds').insert([{
+          group_id: currentGroup.id,
+          author_name: feedObj.author,
+          content: feedObj.text,
+          photo_url: feedObj.photoUrl || null,
+          is_private: feedObj.isPrivate || false
+        }]);
+      } else {
+        liveFeeds.unshift({ ...feedObj, id: Date.now(), time: '방금 전' });
+        renderLiveFeeds();
+      }
+    }
+
+    // ================= 4. 루틴 체크 & 상호작용 =================
+    async function toggleCheckRoutine(id) {
+      const target = routines.find(r => r.id === id);
+      if (!target) return;
+      if (target.restProtected) { showToast('🎫 쉬는 날 쿠폰이 적용된 루틴입니다.'); return; }
+      target.completed = !target.completed;
+      if (target.completed) {
+        target.streak += 1;
+        await pushFeedToBackend({ author: currentMember.nickname, text: `[${target.title}] 완료! ☑️`, isPrivate: false });
+        showToast(`✅ '${target.title}' 완료!`);
+      }
+      localStorage.setItem('y40_routines', JSON.stringify(routines));
+      renderTodayRoutines();
+    }
+
+    async function triggerPeerAction(peerId, name, type) {
+      const el = document.getElementById(`peer-card-${peerId}`);
+      if (el) { el.classList.remove('animate-poke'); void el.offsetWidth; el.classList.add('animate-poke'); }
+      const text = type === 'poke' ? `${name}님에게 찌르기 알림을 보냈습니다! 👉` : `${name}님에게 응원 박수를 보냈습니다! 👏`;
+      showToast(text);
+      await pushFeedToBackend({ author: currentMember.nickname, text, isPrivate: false });
+    }
+
+    function toggleDiaryPrivacy() {
+      isDiaryPrivate = !isDiaryPrivate;
+      const btn = document.getElementById('diary-privacy-toggle');
+      const txt = document.getElementById('diary-privacy-text');
+      btn.className = isDiaryPrivate ? 'text-[11px] font-bold px-2.5 py-1 rounded-full bg-violet-600 text-white transition flex items-center gap-1' : 'text-[11px] font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 transition flex items-center gap-1';
+      txt.textContent = isDiaryPrivate ? '나만 보기 🔒' : '그룹 공유';
+    }
+    function selectQuickMood(emoji, btn) { selectedQuickMood = emoji; document.querySelectorAll('.quick-mood-btn').forEach(b => b.className = 'quick-mood-btn p-1 rounded-lg opacity-60'); btn.className = 'quick-mood-btn p-1 rounded-lg bg-white shadow-2xs ring-1 ring-indigo-500'; }
+    async function submitQuickDiary() {
+      const input = document.getElementById('today-diary-input');
+      const val = input.value.trim();
+      if (!val) return;
+      await pushFeedToBackend({ author: currentMember.nickname, text: `${selectedQuickMood} 오늘의 한 줄 일기: "${val}"`, isPrivate: isDiaryPrivate });
+      input.value = '';
+      showToast(isDiaryPrivate ? '🔒 나만 보기 다이어리에 기록되었습니다.' : '✨ 소그룹 피드에 공유되었습니다.');
+    }
+
+    function openRestCouponModal() {
+      if (restCoupons <= 0) { showToast('잔여 쉬는 날 쿠폰이 없습니다.'); return; }
+      const list = document.getElementById('coupon-routine-choices');
+      list.innerHTML = '';
+      routines.forEach(r => {
+        const btn = document.createElement('button');
+        btn.disabled = r.completed;
+        btn.className = `w-full p-3 rounded-xl border text-left flex items-center justify-between ${r.completed ? 'bg-slate-50 text-slate-400' : 'bg-amber-50/50 border-amber-200 text-slate-800'}`;
+        btn.innerHTML = `<span class="text-xs font-bold truncate">${escapeHtml(r.title)}</span><span class="text-[11px] font-extrabold">${r.completed ? '완료됨' : '쿠폰 적용 →'}</span>`;
+        if (!r.completed) btn.onclick = async () => {
+          restCoupons--; r.completed = true; r.restProtected = true;
+          localStorage.setItem('y40_coupons', String(restCoupons));
+          localStorage.setItem('y40_routines', JSON.stringify(routines));
+          await pushFeedToBackend({ author: currentMember.nickname, text: `🎫 [${r.title}]에 쉬는 날 쿠폰을 사용했습니다.`, isPrivate: false });
+          renderTodayRoutines(); closeRestCouponModal();
+        };
+        list.appendChild(btn);
+      });
+      document.getElementById('coupon-modal').classList.remove('hidden');
+    }
+    function closeRestCouponModal() { document.getElementById('coupon-modal').classList.add('hidden'); }
+
+    // ================= 5. 탐색·설계 탭 =================
+    function renderMarketList(cat = 'all') {
+      const container = document.getElementById('market-list-container');
+      const items = cat === 'all' ? marketItems : marketItems.filter(m => m.category === cat);
+      container.innerHTML = items.map(item => `
+        <div class="bg-white rounded-2xl p-4 shadow-xs border border-slate-100 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-extrabold bg-indigo-50 text-indigo-700 px-2.5 py-0.5 rounded-full">${item.badge}</span>
+            <span class="text-xs font-extrabold text-violet-600">평균 달성률 ${item.rate}</span>
+          </div>
+          <h3 class="text-sm font-extrabold text-slate-900">${item.title}</h3>
+          <div class="bg-slate-50 rounded-xl p-2.5 space-y-1">${item.preview.map(p => `<p class="text-xs text-slate-700">• ${p}</p>`).join('')}</div>
+          <button onclick="importRoutineToToday('${item.id}')" class="w-full py-2 bg-indigo-600 text-white text-xs font-extrabold rounded-xl">내 루틴에 추가하기</button>
+        </div>
+      `).join('');
+    }
+    function filterMarket(cat) {
+      document.querySelectorAll('.market-cat-btn').forEach(btn => {
+        btn.className = btn.dataset.cat === cat
+          ? 'market-cat-btn px-3 py-1.5 rounded-full text-xs font-bold bg-indigo-600 text-white shrink-0 transition'
+          : 'market-cat-btn px-3 py-1.5 rounded-full text-xs font-bold bg-white text-slate-600 border border-slate-200 shrink-0 transition';
+      });
+      renderMarketList(cat);
+    }
+    function importRoutineToToday(id) {
+      if (routines.length >= 5) {
+        showToast('핵심 루틴은 최대 5개까지 등록할 수 있습니다.');
+        return;
+      }
+      const item = marketItems.find(m => m.id === id);
+      if (!item) return;
+      const newObj = { id: Date.now(), title: item.importTask.title, time: item.importTask.time, type: 'check', completed: false, restProtected: false, streak: 1 };
+      routines.push(newObj);
+      localStorage.setItem('y40_routines', JSON.stringify(routines));
+      renderTodayRoutines();
+      switchTab('today');
+      showToast(`📥 '${item.importTask.title}' 루틴이 추가되었습니다!`);
+    }
+
+    let customSelection = { goal: '학업/자격증', level: '입문', pattern: '아침형' }, generatedDrafts = [];
+    function selectDesignOption(key, value, btn) {
+      customSelection[key] = value;
+      const cls = key === 'goal' ? '.design-goal-btn' : key === 'level' ? '.design-level-btn' : '.design-pattern-btn';
+      document.querySelectorAll(cls).forEach(b => b.className = b.className.replace('border-2 border-indigo-600 bg-indigo-50 text-indigo-700', 'border border-slate-200 bg-white text-slate-600'));
+      btn.className = btn.className.replace('border border-slate-200 bg-white text-slate-600', 'border-2 border-indigo-600 bg-indigo-50 text-indigo-700');
+    }
+    function generateCustomDrafts() {
+      const { goal, level, pattern } = customSelection;
+      const baseTime = pattern === '아침형' ? '07:30' : pattern === '올빼미형' ? '22:00' : '15:00';
+      const duration = level === '입문' ? '15분' : level === '보통' ? '30분' : '50분';
+      generatedDrafts = [
+        { title: `🎯 ${pattern} ${goal} 핵심 ${duration} 집중`, time: baseTime, type: 'check' },
+        { title: '📝 오늘 실천 한 줄 기록 남기기', time: '21:30', type: 'check' }
+      ];
+      document.getElementById('draft-summary-tag').textContent = `${goal} · ${level} · ${pattern}`;
+      document.getElementById('generated-draft-items').innerHTML = generatedDrafts.map((d, i) => `<div class="bg-white p-2.5 rounded-xl border border-slate-200 font-bold text-slate-800">${i + 1}. ${d.title} (${d.time})</div>`).join('');
+      document.getElementById('custom-draft-result').classList.remove('hidden');
+    }
+    function confirmCustomDrafts() {
+      const remainingSlots = 5 - routines.length;
+      if (remainingSlots <= 0) {
+        showToast('핵심 루틴이 이미 5개 꽉 찼습니다. 기존 루틴을 정리한 뒤 추가해 주세요.');
+        return;
+      }
+      const toAdd = generatedDrafts.slice(0, remainingSlots).map((d, i) => ({
+        id: Date.now() + i,
+        title: d.title,
+        time: d.time,
+        type: 'check',
+        completed: false,
+        restProtected: false,
+        streak: 1
+      }));
+      routines = [...routines, ...toAdd];
+      localStorage.setItem('y40_routines', JSON.stringify(routines));
+      renderTodayRoutines();
+      switchTab('today');
+      showToast('✅ 맞춤 추천 루틴이 오늘 목록에 추가되었습니다!');
+    }
+
+    // ================= 6. 리포트·일기 탭 (실제 달성률 그래프 + 28일 잔디 + 주간 다이어리 누적 저장) =================
+    let selectedWeeklyMood = '🥳 뿌듯함';
+    function selectReportMood(mood, btn) {
+      selectedWeeklyMood = mood;
+      document.querySelectorAll('.report-mood-btn').forEach(b => b.className = 'report-mood-btn px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 text-xs font-bold');
+      btn.className = 'report-mood-btn px-2.5 py-1 rounded-lg bg-indigo-100 text-indigo-700 text-xs font-bold';
+    }
+
+    function saveWeeklyDiary() {
+      const titleInput = document.getElementById('weekly-diary-title');
+      const textArea = document.getElementById('weekly-diary-textarea');
+      const title = titleInput.value.trim();
+      const text = textArea.value.trim();
+      if (!text) {
+        showToast('회고 일기 내용을 입력해 주세요!');
+        return;
+      }
+
+      const today = getTodayStr();
+      const { pct } = calcMyProgress();
+      const newEntry = {
+        id: Date.now(),
+        date: today,
+        weekLabel: getWeekLabel(today),
+        mood: selectedWeeklyMood,
+        title: title || `${getWeekLabel(today)} 회고 기록`,
+        content: text,
+        rate: pct
+      };
+
+      weeklyDiaries.unshift(newEntry);
+      localStorage.setItem('y40_weekly_diaries', JSON.stringify(weeklyDiaries));
+      saveAccountToLocalRegistry();
+
+      titleInput.value = '';
+      textArea.value = '';
+      renderReportAndDiary();
+      showToast('📔 주간 디지털 다이어리가 누적 저장되었습니다!');
+    }
+
+    function deleteWeeklyDiary(id) {
+      weeklyDiaries = weeklyDiaries.filter(d => d.id !== id);
+      localStorage.setItem('y40_weekly_diaries', JSON.stringify(weeklyDiaries));
+      saveAccountToLocalRegistry();
+      renderReportAndDiary();
+      showToast('🗑️ 다이어리 기록이 삭제되었습니다.');
+    }
+
+    function renderReportAndDiary() {
+      const today = getTodayStr();
+      const weekBadge = document.getElementById('diary-week-badge');
+      if (weekBadge) weekBadge.textContent = `${getWeekLabel(today)} · ${today}`;
+
+      // 1) 상단 실제 통계 3칸
+      const recordedDates = Object.keys(dailyHistory).sort();
+      let overallAvg = 0;
+      if (recordedDates.length > 0) {
+        const sum = recordedDates.reduce((acc, k) => acc + (Number(dailyHistory[k].pct) || 0), 0);
+        overallAvg = Math.round(sum / recordedDates.length);
+      }
+
+      let streakDays = 0;
+      const cursor = new Date();
+      for (let i = 0; i < 365; i++) {
+        const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(cursor.getDate()).padStart(2, '0')}`;
+        if (dailyHistory[key] && dailyHistory[key].pct > 0) {
+          streakDays++;
+          cursor.setDate(cursor.getDate() - 1);
+        } else if (i === 0) {
+          cursor.setDate(cursor.getDate() - 1);
+        } else {
+          break;
+        }
+      }
+
+      const avgEl = document.getElementById('report-avg-rate');
+      const streakEl = document.getElementById('report-streak-days');
+      const countEl = document.getElementById('report-diary-count');
+      if (avgEl) avgEl.textContent = `${overallAvg}%`;
+      if (streakEl) streakEl.textContent = `${streakDays}일`;
+      if (countEl) countEl.textContent = `${weeklyDiaries.length}편`;
+
+      // 2) 이번 주 월~일 실제 달성률 막대 그래프
+      const weeklyGrid = document.getElementById('weekly-bars-grid');
+      if (weeklyGrid) {
+        const now = new Date();
+        const dayOfWeek = now.getDay(); // 0(일)~6(토)
+        const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+        const monday = new Date(now);
+        monday.setDate(now.getDate() + mondayOffset);
+
+        const dayNames = ['월', '화', '수', '목', '금', '토', '일'];
+        let weekSum = 0;
+        let activeDays = 0;
+        const barsHtml = [];
+
+        for (let i = 0; i < 7; i++) {
+          const d = new Date(monday);
+          d.setDate(monday.getDate() + i);
+          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+          const rec = dailyHistory[key];
+          const pct = rec ? Number(rec.pct) || 0 : 0;
+          const isToday = key === today;
+
+          if (rec) {
+            weekSum += pct;
+            activeDays++;
+          }
+
+          const barHeight = pct > 0 ? Math.max(14, Math.round(pct * 0.85)) : 8;
+          const barColor = pct === 0
+            ? 'bg-slate-100'
+            : isToday
+              ? 'bg-violet-600'
+              : pct >= 80
+                ? 'bg-indigo-600'
+                : 'bg-indigo-300';
+
+          barsHtml.push(`
+            <div class="flex flex-col items-center gap-1 h-full justify-end">
+              <span class="text-[10px] font-bold ${isToday ? 'text-violet-600' : 'text-slate-500'}">${pct}%</span>
+              <div class="w-full ${barColor} rounded-t-lg transition-all duration-300" style="height: ${barHeight}%;"></div>
+              <span class="text-xs ${isToday ? 'font-extrabold text-violet-600' : 'font-bold text-slate-600'}">${dayNames[i]}</span>
+            </div>
+          `);
+        }
+        weeklyGrid.innerHTML = barsHtml.join('');
+        const weeklyAvg = activeDays > 0 ? Math.round(weekSum / activeDays) : 0;
+        document.getElementById('weekly-avg-badge').textContent = `주간 평균 ${weeklyAvg}%`;
+      }
+
+      // 3) 최근 28일 실제 잔디 히트맵
+      const hm = document.getElementById('monthly-heatmap');
+      if (hm) {
+        const cells = [];
+        for (let i = 27; i >= 0; i--) {
+          const d = new Date();
+          d.setDate(d.getDate() - i);
+          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+          const pct = dailyHistory[key] ? Number(dailyHistory[key].pct) || 0 : 0;
+          const isToday = key === today;
+
+          let bgCls = 'bg-slate-100 text-slate-400';
+          if (pct >= 90) bgCls = 'bg-indigo-600 text-white';
+          else if (pct >= 50) bgCls = 'bg-indigo-400 text-white';
+          else if (pct > 0) bgCls = 'bg-indigo-200 text-indigo-900';
+
+          cells.push(`
+            <div title="${key}: 달성률 ${pct}%" class="h-6 rounded-md ${bgCls} ${isToday ? 'ring-2 ring-violet-500' : ''} flex items-center justify-center text-[9px] font-bold">
+              ${d.getDate()}
+            </div>
+          `);
+        }
+        hm.innerHTML = cells.join('');
+      }
+
+      // 4) 누적 다이어리 보관함 렌더링
+      const listEl = document.getElementById('saved-diaries-list');
+      if (listEl) {
+        if (weeklyDiaries.length === 0) {
+          listEl.innerHTML = `
+            <div class="text-center py-6 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-[11px] text-slate-400">
+              아직 기록된 다이어리가 없습니다.<br/>위 입력창에서 첫 회고를 남기면 날짜와 달성률이 함께 누적됩니다.
+            </div>
+          `;
+        } else {
+          listEl.innerHTML = weeklyDiaries.map(item => `
+            <div class="bg-slate-50 rounded-xl p-3 border border-slate-200/80 text-xs space-y-1.5">
+              <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span class="text-[10px] font-extrabold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">${escapeHtml(item.weekLabel)}</span>
+                  <span class="text-[10px] text-slate-400">${escapeHtml(item.date)}</span>
+                  <span class="text-[10px] font-extrabold text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded">달성률 ${item.rate}%</span>
+                </div>
+                <button onclick="deleteWeeklyDiary(${item.id})" class="text-[10px] text-slate-400 hover:text-rose-500 shrink-0">삭제</button>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span class="font-extrabold text-indigo-600 shrink-0">${escapeHtml(item.mood)}</span>
+                <strong class="font-extrabold text-slate-900 truncate">${escapeHtml(item.title)}</strong>
+              </div>
+              <p class="text-slate-700 leading-relaxed whitespace-pre-line">${escapeHtml(item.content)}</p>
+            </div>
+          `).join('');
+        }
+      }
+    }
+
+    // ================= 7. 탭 전환 & 토스트 =================
+    function switchTab(tabName) {
+      ['today', 'explore', 'report', 'plus'].forEach(t => document.getElementById(`tab-${t}`).classList.add('hidden'));
+      document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.className = btn.dataset.tab === tabName ? 'nav-btn flex flex-col items-center gap-1 text-indigo-600 font-extrabold transition' : 'nav-btn flex flex-col items-center gap-1 text-slate-400 hover:text-slate-600 font-medium transition';
       });
       if (tabName === 'report') renderReportAndDiary();
     }
 
-    function escapeHtml(str) {
-      return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
+    function switchExploreSubtab(sub) {
+      document.getElementById('explore-market-view').classList.toggle('hidden', sub !== 'market');
+      document.getElementById('explore-custom-view').classList.toggle('hidden', sub === 'market');
+      document.getElementById('subtab-market-btn').className = sub === 'market'
+        ? 'py-2 text-xs font-extrabold rounded-xl bg-white text-indigo-700 shadow-xs transition'
+        : 'py-2 text-xs font-bold rounded-xl text-slate-500 hover:text-slate-700 transition';
+      document.getElementById('subtab-custom-btn').className = sub !== 'market'
+        ? 'py-2 text-xs font-extrabold rounded-xl bg-white text-indigo-700 shadow-xs transition'
+        : 'py-2 text-xs font-bold rounded-xl text-slate-500 hover:text-slate-700 transition';
     }
 
-    function renderAll() {
-      document.getElementById('timer-display').textContent = formatSeconds(timerSeconds);
-      renderRoutines();
-      renderReportAndDiary();
+    function showToast(msg) {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = 'bg-slate-900/95 text-white text-xs font-bold px-4 py-2.5 rounded-2xl shadow-lg animate-pop text-center max-w-[340px]';
+      toast.textContent = msg;
+      container.appendChild(toast);
+      setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 250); }, 2500);
     }
+
+    function updateTodayDateBadge() {
+      const now = new Date();
+      const days = ['일', '월', '화', '수', '목', '금', '토'];
+      const yyyy = now.getFullYear();
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const dd = String(now.getDate()).padStart(2, '0');
+      document.getElementById('today-date-badge').textContent = `${yyyy}.${mm}.${dd} (${days[now.getDay()]})`;
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      updateTodayDateBadge();
+      renderMarketList('all');
+      handleInviteUrlAndClipboard();
+
+      if (!currentMember.nickname) {
+        currentMember.nickname = '게스트';
+        updateHeaderUI();
+        renderTodayRoutines();
+        renderReportAndDiary();
+        openDcLoginModal(true);
+      } else {
+        updateHeaderUI();
+        renderTodayRoutines();
+        renderReportAndDiary();
+        initRealtimeDmChannel();
+        initRealtimeGroup();
+      }
+      lucide.createIcons();
+    });
   </script>
 </body>
 </html>
